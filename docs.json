@@ -1,126 +1,248 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Colloqui",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2563EB",
+    "light": "#60A5FA",
+    "dark": "#1E40AF"
   },
   "favicon": "/favicon.svg",
+  "openapi": ["openapi.patched.yaml"],
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "get-started/introduction",
+              "get-started/quickstart",
+              "get-started/authentication"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core-concepts/workspaces",
+              "core-concepts/agents",
+              "core-concepts/tools",
+              "core-concepts/knowledge-bases",
+              "core-concepts/numbers"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Build an Agent",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/components",
-              "essentials/reusable-snippets"
+              "build-an-agent/llm",
+              "build-an-agent/stt",
+              "build-an-agent/tts",
+              "build-an-agent/prompt",
+              "build-an-agent/voice-behavior",
+              "build-an-agent/tools/overview",
+              "build-an-agent/tools/end-call",
+              "build-an-agent/tools/transfer-call",
+              "build-an-agent/tools/press-ivr",
+              "build-an-agent/tools/send-sms",
+              "build-an-agent/tools/extract-dynamic-variable",
+              "build-an-agent/tools/custom-function",
+              "build-an-agent/knowledge-base-tuning",
+              "build-an-agent/voicemail"
             ]
           },
           {
-            "group": "Agent ready",
+            "group": "Versioning & Publishing",
             "pages": [
-              "agent-ready/prompt",
-              "agent-ready/visibility",
-              "agent-ready/contextual",
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "versioning/overview"
+            ]
+          },
+          {
+            "group": "Deploy",
+            "pages": [
+              "deploy/numbers",
+              "deploy/sip-headers"
+            ]
+          },
+          {
+            "group": "Operate",
+            "pages": [
+              "operate/webhooks",
+              "operate/call-history"
+            ]
+          },
+          {
+            "group": "Workspace & Billing",
+            "pages": [
+              "workspace/overview",
+              "workspace/billing"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Authentication",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/authentication/login",
+              "api-reference/authentication/logout"
+            ]
+          },
+          {
+            "group": "API Keys",
+            "pages": [
+              "api-reference/api-keys/list",
+              "api-reference/api-keys/create",
+              "api-reference/api-keys/revoke"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "api-reference/agents/list",
+              "api-reference/agents/create",
+              "api-reference/agents/show",
+              "api-reference/agents/update",
+              "api-reference/agents/delete",
+              "api-reference/agents/publish"
+            ]
+          },
+          {
+            "group": "Agent Versions",
+            "pages": [
+              "api-reference/agent-versions/list",
+              "api-reference/agent-versions/show-latest",
+              "api-reference/agent-versions/show",
+              "api-reference/agent-versions/restore"
+            ]
+          },
+          {
+            "group": "Call History",
+            "pages": [
+              "api-reference/call-history/list",
+              "api-reference/call-history/show"
+            ]
+          },
+          {
+            "group": "Knowledge Bases",
+            "pages": [
+              "api-reference/knowledge-bases/list",
+              "api-reference/knowledge-bases/create",
+              "api-reference/knowledge-bases/show",
+              "api-reference/knowledge-bases/delete",
+              "api-reference/knowledge-bases/add-sources",
+              "api-reference/knowledge-bases/delete-source"
+            ]
+          },
+          {
+            "group": "Numbers",
+            "pages": [
+              "api-reference/numbers/list",
+              "api-reference/numbers/create",
+              "api-reference/numbers/show",
+              "api-reference/numbers/update",
+              "api-reference/numbers/delete"
+            ]
+          },
+          {
+            "group": "Subscriptions",
+            "pages": [
+              "api-reference/subscriptions/list",
+              "api-reference/subscriptions/create",
+              "api-reference/subscriptions/update"
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api-reference/users/create"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api-reference/webhooks/list",
+              "api-reference/webhooks/create",
+              "api-reference/webhooks/show",
+              "api-reference/webhooks/update",
+              "api-reference/webhooks/delete"
+            ]
+          },
+          {
+            "group": "Workspaces",
+            "pages": [
+              "api-reference/workspaces/list",
+              "api-reference/workspaces/create",
+              "api-reference/workspaces/show",
+              "api-reference/workspaces/update",
+              "api-reference/workspaces/delete",
+              "api-reference/workspaces/billing-history",
+              "api-reference/workspaces/billing-info",
+              "api-reference/workspaces/payment-methods"
+            ]
+          },
+          {
+            "group": "Workspace Users",
+            "pages": [
+              "api-reference/workspace-users/list",
+              "api-reference/workspace-users/add",
+              "api-reference/workspace-users/update",
+              "api-reference/workspace-users/remove"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog/index"
             ]
           }
         ]
       }
     ],
     "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
+      "anchors": []
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "https://www.colloqui.ai/contact/"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://app.colloqui.ai"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    "socials": {}
+  },
+  "api": {
+    "playground": {
+      "mode": "simple"
+    },
+    "auth": {
+      "method": "bearer"
+    },
+    "baseUrl": "https://colloqui-web-develop-btoadh.laravel.cloud"
   }
 }
