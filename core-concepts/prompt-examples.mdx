@@ -1,0 +1,149 @@
+---
+title: "Prompt examples"
+description: "Ready-to-use prompt patterns for common voice agent scenarios — pronouncing contact details, handling silence, and more."
+---
+
+These are practical prompt snippets you can drop into your agent's `prompt_config.prompt` to handle situations that come up on almost every voice agent. Each one solves a specific problem with tested wording.
+
+## Pronouncing phone numbers
+
+Models tend to read phone numbers as large integers ("four billion, one hundred fifty-eight million...") or rush through digits without pauses. Add this to your prompt to force digit-by-digit pronunciation:
+
+```markdown
+When speaking a phone number, break it into individual digits
+grouped with pauses:
+
+- 4158923245 becomes "four one five — eight nine two — three two four five"
+- Always insert a pause (dash) between groups of three or four digits
+- If a caller asks you to repeat the number, use the same format every time
+```
+
+This works across all TTS providers. The dash characters create natural pauses in speech.
+
+## Spelling out email addresses
+
+Email addresses are tricky because they mix letters, symbols, and domain names. Instruct your agent to spell them out clearly:
+
+```markdown
+When speaking an email address:
+
+- Spell out the part before @ letter by letter: "j-o-h-n"
+- Pronounce @ as "at"
+- Spell out the domain if it's not a common word: "a-c-m-e"
+- Say "dot" before the extension: "dot com", "dot net"
+
+Example: john@acme.com becomes "j-o-h-n at a-c-m-e dot com"
+
+If the caller asks you to repeat it, use the exact same format.
+```
+
+## Pronouncing website URLs
+
+```markdown
+When speaking a website URL:
+
+- Never say "HTTP" or "HTTPS" or "www" unless the caller needs
+  the full URL for a technical reason
+- If part of the domain is a word, say the word normally
+- If part of the domain is letters, spell each one out
+- Always say "dot" before the extension
+
+Examples:
+- nklaundry.com → "en-kay-laundry dot com"
+- abctest.net → "ay-bee-see-test dot net"
+```
+
+## Speaking times and dates
+
+Models default to written formats like "3:30 PM" which TTS can mangle. Be explicit:
+
+```markdown
+When speaking times:
+
+- 1:00 PM → "one PM"
+- 3:30 PM → "three thirty PM"
+- 8:45 AM → "eight forty-five AM"
+- Always include AM or PM
+- Never say "o'clock"
+
+When speaking dates:
+
+- 01/15 → "January fifteenth"
+- 03/03/2025 → "March third, twenty twenty-five"
+- Never use numeric date formats when speaking
+```
+
+## Handling silence and holds
+
+When a caller says "hold on" or goes quiet, you usually don't want the agent to keep talking. How to handle this depends on your LLM provider.
+
+### Standard approach
+
+Add this to your prompt:
+
+```markdown
+If the caller says "hold on", "one moment", "one second",
+or similar:
+
+- Say "Sure, take your time" and then wait silently
+- Do not ask follow-up questions or fill the silence
+- When the caller speaks again, respond normally
+```
+
+Pair this with your `prompt_config` settings — set `ai_speak_after_silence` to `true` and `ai_speak_wait_time` to a comfortable duration (3–5 seconds) so the agent gently re-engages if the silence goes on too long.
+
+### Adjusting silence behaviour
+
+The `tts_config.responsiveness` setting (0–1) controls how quickly the agent jumps in after the caller stops speaking. Lower values give callers more space; higher values make the agent respond faster. For calls where callers might need time to think (scheduling, providing account numbers), set this around 0.3–0.5.
+
+## Handling interruptions
+
+```markdown
+If the caller interrupts you mid-sentence:
+
+- Stop speaking immediately and listen
+- Do not repeat what you were saying unless the caller asks
+- Respond to whatever the caller said
+```
+
+The `tts_config.interruption_sensitivity` setting (0–1) controls how easily callers can cut in. Higher values mean the agent yields more readily. For conversational agents, 0.7–0.8 works well.
+
+## Confirming important information
+
+When your agent collects critical details — booking times, phone numbers, spelling of names — always confirm:
+
+```markdown
+After the caller provides any of the following, repeat it back
+and ask for confirmation before proceeding:
+
+- Phone numbers
+- Email addresses
+- Appointment dates or times
+- Names (especially spelling)
+- Order numbers
+
+Example: "Just to confirm, that's j-o-h-n at a-c-m-e dot com — is that correct?"
+```
+
+## Handling "I don't know" gracefully
+
+```markdown
+If you don't have enough information to answer a question:
+
+- Say so honestly: "I don't have that information available right now"
+- Do NOT make up an answer or guess
+- Offer an alternative: transfer to a team member, take a message,
+  or suggest the caller check a specific resource
+```
+
+## Keeping responses concise
+
+The single most common problem with voice agents is responses that are too long. Add this as a hard constraint:
+
+```markdown
+IMPORTANT: Keep every response to 1–2 sentences maximum.
+The caller is listening on a phone, not reading a screen.
+If you need to convey multiple pieces of information,
+break them across separate turns and check for understanding
+between each one.
+```

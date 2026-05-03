@@ -29,7 +29,9 @@
               "core-concepts/agents",
               "core-concepts/tools",
               "core-concepts/knowledge-bases",
-              "core-concepts/numbers"
+              "core-concepts/numbers",
+              "core-concepts/prompt-engineering",
+              "core-concepts/prompt-examples"
             ]
           },
           {

@@ -1,0 +1,119 @@
+---
+title: "Prompt engineering"
+description: "Write prompts that make your voice agent sound natural, stay on task, and handle edge cases reliably."
+---
+
+Your prompt is the single most important part of your agent. It controls how the agent greets callers, interprets what they say, decides when to use tools, and recovers when conversations go sideways. A good prompt turns a capable LLM into a reliable phone agent; a vague one produces unpredictable calls.
+
+This guide covers the patterns that work best for voice specifically — they apply regardless of which LLM provider you've chosen in `llm_config`.
+
+## Structure your prompt in sections
+
+Long, unstructured prompts are hard for both you and the model to reason about. Break yours into clearly labelled sections so each one has a single job. This makes it easier to update one behaviour without accidentally breaking another.
+
+A proven structure for voice agents:
+
+```markdown
+## Identity
+You are [role] at [Company Name].
+Your job is to [one-sentence purpose].
+
+## Style
+- Keep responses to 1–2 sentences. Callers are listening, not reading.
+- Use natural spoken language — contractions, filler acknowledgements ("got it", "sure thing").
+- Never spell out dates, times, or numbers. Say "March third" not "3/3".
+- Ask one question at a time.
+
+## Guardrails
+- Do not discuss [off-limits topics].
+- If asked something outside your scope, say so honestly and offer to transfer.
+- Never guess at information you don't have — use tools or ask the caller.
+
+## Task
+[Step-by-step instructions for the agent's main job]
+
+## Objection handling
+- If the caller says they're not interested: [specific response]
+- If the caller is frustrated or angry: [specific response]
+- If the caller asks to speak to a human: [specific response]
+```
+
+Each section stays focused: **Identity** sets context, **Style** controls how the agent sounds, **Guardrails** define boundaries, **Task** drives the conversation, and **Objection handling** covers recovery paths.
+
+## Write for the ear, not the eye
+
+Voice agents speak their responses aloud. Prompts that work well for chatbots often sound robotic on a phone call. A few rules that make a big difference:
+
+**Keep turns short.** Callers lose attention after two sentences. If the agent needs to convey a lot of information, break it across multiple turns and check for understanding.
+
+**Use spoken forms.** Tell the model to say "four fifteen PM" instead of "4:15 PM", "twenty-five dollars" instead of "$25", and "January third" instead of "01/03". Add this explicitly to your style section — models default to written forms otherwise.
+
+**Acknowledge before responding.** Real humans say "got it", "sure", or "okay" before answering a question. Instruct your agent to do the same. It buys processing time and sounds natural.
+
+**Avoid lists.** A bulleted list in a chatbot is clear. Read aloud, it's a wall of words. Instead, have the agent offer the most relevant option first and ask if the caller wants to hear more.
+
+## Be explicit about tool usage
+
+Models are much better at using tools when you tell them exactly when and why to use each one. Relying on tool descriptions alone leads to missed calls or misfires.
+
+Name your tools directly in the prompt and specify the trigger conditions:
+
+```markdown
+## When to use tools
+
+- When the caller confirms they want to be connected to a team member,
+  call `transfer_call`. Do not ask for confirmation twice.
+
+- When the caller provides their order number,
+  call `check_order` with the order number before answering
+  any questions about their order.
+
+- When the conversation reaches a natural conclusion or the caller
+  says goodbye, call `end_call`.
+
+- Do NOT call `transfer_call` just because the caller is unhappy.
+  First attempt to resolve their issue. Only transfer if they
+  explicitly ask for a human or if you cannot help.
+```
+
+Three principles for tool instructions:
+
+**Define triggers clearly.** List the specific words, phrases, or conditions that should cause a tool call. "When the caller mentions refund or asks for their money back" is better than "when appropriate."
+
+**Specify sequences.** If tools need to be called in a particular order, say so. "First call `check_order`, then based on the result, either resolve the issue or call `transfer_call`."
+
+**Set negative boundaries.** Telling the model when *not* to call a tool is just as important as telling it when to call one. Models often over-trigger tools without explicit constraints.
+
+## Handle the edges
+
+The difference between a demo agent and a production agent is edge case handling. Think through what happens when things go wrong and put instructions in your prompt for each scenario.
+
+Common edge cases for voice agents:
+
+**Silence.** The caller stops talking. Your `prompt_config` controls `ai_speak_after_silence` and `ai_speak_wait_time`, but you should also tell the agent what to *say* — a gentle "Are you still there?" is better than repeating the last question.
+
+**Interruptions.** The caller talks over the agent. Keep the agent's responses short so there's less to interrupt, and instruct it to yield gracefully: "If the caller interrupts, stop speaking and listen to what they need."
+
+**Off-topic requests.** The caller asks something unrelated. Decide in advance whether the agent should redirect, answer briefly and redirect, or refuse. Put this in your guardrails section.
+
+**Repeated misunderstanding.** The caller and agent aren't connecting. Set a rule: "If you've asked for the same information three times and still don't have it, offer to transfer to a human."
+
+**Voicemail.** If the call goes to voicemail on a transfer, define what the agent should do. This is configurable per-tool via `voicemail_detection` and `voicemail_response_action_type` in your tool config.
+
+## Use dynamic variables for personalisation
+
+If you're making outbound calls or have caller context from your system, inject variables into your prompt so the agent can greet callers by name and reference their specific situation.
+
+Use the `extract_dynamic_variable` tool type to pull information from the conversation and feed it into downstream tool calls or API requests. This keeps the agent grounded in real data rather than guessing.
+
+## Iterate with real calls
+
+Prompts rarely work perfectly on the first try. The best workflow:
+
+1. **Start simple.** Write the minimum prompt that handles the happy path.
+2. **Test with real calls.** Use the dashboard or call the number yourself.
+3. **Check call history.** Review transcripts in the Call History section to see where the agent deviated from your intent.
+4. **Fix one thing at a time.** Add a specific instruction for each failure case you find.
+5. **Publish a new version.** Each publish creates an immutable snapshot, so you can always roll back if a change makes things worse.
+
+Resist the urge to make the prompt longer than it needs to be. Every sentence the model has to process adds latency and increases the chance of conflicting instructions. If your prompt is growing past a page, consider whether some of that knowledge belongs in a knowledge base instead.
