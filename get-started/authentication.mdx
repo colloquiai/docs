@@ -1,0 +1,42 @@
+---
+title: "Authentication"
+description: "Create an API key and use it to call the Colloqui API."
+---
+
+Every API request is authenticated with a bearer token. Keys are created in the dashboard and belong to the workspace that was active when you created them.
+
+## Create an API key
+
+1. In the dashboard, open **Settings** and choose **API Keys**.
+2. Click to create a key, give it a name that says where it will be used, and optionally set an expiry.
+3. Copy the key as soon as it is shown. It is not displayed again.
+
+Keys are tied to your user and to your current workspace. If you work in more than one workspace, switch to the right one before creating the key, because the key cannot be moved afterwards and every request it makes is scoped to that workspace.
+
+## Make a request
+
+Send the key in the `Authorization` header and always ask for JSON:
+
+```bash
+curl https://dashboard.colloqui.ai/api/v1/agents \
+  -H "Authorization: Bearer $COLLOQUI_API_KEY" \
+  -H "Accept: application/json"
+```
+
+<Warning>
+Send `Accept: application/json` on every request, including GET. Without it, a request that fails validation returns an HTTP 302 redirect with no error body, which is easy to mistake for an authentication problem.
+</Warning>
+
+A successful response wraps the result in a `data` key. List endpoints add a `meta` object with cursor pagination fields. See the [API introduction](/api-reference/introduction) for the response and error formats.
+
+## Workspace scoping
+
+An API key reads and writes the workspace it was created in. List endpoints return only that workspace's agents, numbers and call history. There is no parameter to select a different workspace on a request. To work in another workspace, create a key there.
+
+## Revoking a key
+
+Delete the key from **Settings → API Keys**, or call [Revoke API Key](/api-reference/api-keys/revoke). Requests using a revoked key fail immediately with a 401.
+
+## Logging in with email and password
+
+If you are building something that needs to mint keys for a user, [Login](/api-reference/authentication/login) exchanges an email and password for a token, and [Create API Key](/api-reference/api-keys/create) issues a long-lived key from that session. For your own scripts and integrations, a key from the dashboard is simpler.

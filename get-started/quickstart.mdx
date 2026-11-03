@@ -1,0 +1,105 @@
+---
+title: "Quickstart"
+description: "Go from a new account to a live phone call with your first Colloqui agent."
+---
+
+By the end of this page you will have an agent answering a real phone number. It takes about fifteen minutes and needs nothing but a browser and a phone.
+
+<Steps>
+  <Step title="Create your account">
+    Sign up at [dashboard.colloqui.ai](https://dashboard.colloqui.ai/register) with your name, email and a password, then confirm the verification email. Your account comes with a workspace, which is where agents, numbers and billing live. You can invite teammates to it later from **Settings**.
+  </Step>
+
+  <Step title="Add a payment method">
+    Open **Billing** in the sidebar and add a card. Colloqui bills per workspace, and the dashboard will not let you edit an agent or add a number until a payment method is on file.
+
+    <Note>
+    If you skip this step you will see a **Payment method required** banner on the Agents page. The **Configure Payment Method** button on that banner takes you to the same place.
+    </Note>
+  </Step>
+
+  <Step title="Create an agent">
+    Go to **Agents**, click **Create Agent**, and choose how it should be built:
+
+    - **Single Prompt** drives the whole call from one prompt. Start here.
+    - **Conversation Flow** is a visual flow of nodes with explicit transitions. Use it once you need a call to follow a fixed structure, such as collecting details in order before a booking.
+
+    The agent opens as a draft called **New Agent**. It already has a working language model, voice and transcription configured, so you can make a call before you change anything.
+  </Step>
+
+  <Step title="Write the prompt">
+    On the **Prompt** tab, replace the placeholder in **Global Prompt** with what the agent should do. A short, concrete prompt beats a long vague one. For a first test:
+
+    ```text
+    You are the receptionist for Harbour Dental. Greet the caller, find out
+    whether they want to book, change or cancel an appointment, and collect
+    their full name and phone number. Ask one question at a time. When you
+    have what you need, tell the caller the team will call them back to
+    confirm, then end the call.
+    ```
+
+    In the same tab you can set the **Welcome Message**, which is the first thing the caller hears. Leave it on the default for now.
+
+    Click **Save**. Saving updates the draft only; nothing is live yet.
+
+    <Tip>
+    See [Prompt engineering](/core-concepts/prompt-engineering) for the patterns that make voice prompts reliable, and [Prompt examples](/core-concepts/prompt-examples) for complete prompts you can adapt.
+    </Tip>
+  </Step>
+
+  <Step title="Get a phone number">
+    Open **Phone Numbers** and click **Add Number**. You have two options:
+
+    - **Buy Number** shows numbers available to purchase. Pick one and give it a nickname such as `Harbour Dental main line`.
+    - **Add Number** registers a number you already own. You will need to route that number to Colloqui at your carrier. See [Numbers](/deploy/numbers) for the details.
+
+    Buying a number is the quickest path for a first test.
+  </Step>
+
+  <Step title="Assign the number to your agent">
+    Select the number you just added. Under **Inbound Agent**, choose your agent and save.
+
+    Assigning a number publishes the agent automatically. You will see a new version in the agent's version history described as *Assigned to* followed by the number's nickname. An agent cannot be published without at least one number, so this is the step that makes it live.
+  </Step>
+
+  <Step title="Make the call">
+    Dial the number from your phone. You should hear the welcome message, and the agent will follow your prompt from there.
+
+    Once you hang up, open **Call History**. The call appears with its transcript, and a recording if recording is enabled, which it is by default on new agents.
+  </Step>
+</Steps>
+
+## Changing the agent after it is live
+
+Edits to a published agent are saved to its draft and do not affect calls until you publish them. When you are ready, click **Publish**, add a short description of what changed, and confirm. The agent's version history keeps every published version, and you can restore an earlier one at any time.
+
+## What a new agent starts with
+
+| Setting | Default |
+|---|---|
+| Language model | GPT-4.1 |
+| Transcription | Deepgram Nova 3 |
+| Voice | ElevenLabs Flash v2.5 |
+| First speaker | The agent, with a generated welcome message |
+| Call recording | On |
+| Maximum call length | 60 minutes |
+| Ring time before answering | 30 seconds |
+
+All of these can be changed on the agent page. See [Build an agent](/build-an-agent/llm) for what each setting does.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Prompt engineering" icon="pen-to-square" href="/core-concepts/prompt-engineering">
+    Patterns that make voice prompts reliable.
+  </Card>
+  <Card title="Tools" icon="wrench" href="/build-an-agent/tools/overview">
+    Let the agent transfer calls, send SMS, extract details and call your API.
+  </Card>
+  <Card title="Knowledge bases" icon="book" href="/core-concepts/knowledge-bases">
+    Give the agent documents and web pages to answer from.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/introduction">
+    Do all of the above from code.
+  </Card>
+</CardGroup>
