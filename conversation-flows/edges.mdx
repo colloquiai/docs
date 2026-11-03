@@ -1,0 +1,53 @@
+---
+title: "Edges and conditions"
+description: "How the flow decides where to go next."
+---
+
+Edges connect nodes. Each has a condition, and the first edge whose condition holds is taken. If none holds, the node's **else** edge is taken.
+
+## Prompt conditions
+
+A prompt condition describes the caller's behaviour in words, and the model decides whether the caller's latest reply matches:
+
+```text
+Caller asks about opening hours, location or parking
+```
+
+Write it as something observable in what the caller said, not as internal state. "Caller has given both their name and phone number" works. "Details collected" does not.
+
+## Equation conditions
+
+An equation condition compares variables and is evaluated exactly. Each edge can hold one or more equations joined by **and** or **or**.
+
+| Operator | Meaning |
+|---|---|
+| `==`, `!=` | Equal, not equal |
+| `>`, `>=`, `<`, `<=` | Numeric comparison. The variable must be a numeric type. |
+| `contains`, `not_contains` | Substring |
+| `exists`, `not_exists` | Whether the variable has a value at all |
+
+Use `exists` to branch on whether an API call succeeded: a returned id exists on success and not on failure, and you do not have to guess a status string.
+
+Numeric literals are plain digits. Compare times as `0900` and `1730`, not `09:00`. A literal with a colon does not parse as a number, and the comparison silently fails.
+
+## Else edge
+
+Every node that can route needs an else edge, and its condition is the fixed word **Else**. It is the safety net, so point it at the safest landing: usually the node that re-asks, or a node that takes a message.
+
+## Always edge
+
+An always edge fires after the caller's next reply, unconditionally. It is the right exit for a static node that asks a closed question: the node speaks, the caller answers, and the flow moves to a Logic Split that routes on the answer. Routing this way is more reliable than putting prompt conditions on the static node itself, where the model may answer in speech instead of transitioning.
+
+When a node has an always edge, its other edges do not fire. Put the routing on the next node.
+
+## Skip response edge
+
+A skip response edge leaves the node immediately after it speaks, without waiting for a reply. Use it for nodes that should say something and move on, such as a global node that acknowledges and exits. A node cannot have both a skip response edge and an else edge.
+
+## Writing "done" conditions
+
+The edge into End Call needs care. A bare "thanks", "ok" or "right" is an acknowledgement, not a goodbye, and an edge that treats it as one hangs up on callers who were about to ask something. Write it as an explicit no or a goodbye, and say that a bare acknowledgement does not count.
+
+## Edge ids
+
+Every edge has an id that must be unique across the whole flow. The dashboard assigns them. If you build flows by API, give each edge a readable, unique id and never reuse one.

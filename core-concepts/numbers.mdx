@@ -1,0 +1,36 @@
+---
+title: "Phone numbers"
+description: "How numbers connect callers to agents."
+---
+
+A phone number is what makes an agent reachable. Each number has an inbound agent, which answers calls to it, and an outbound agent, which is used for calls placed from it. A number with neither is spare.
+
+## Getting a number
+
+Open **Phone Numbers** and click **Add Number**.
+
+- **Buy Number** lists numbers available to purchase in your workspace. Pick one and give it a nickname. It is ready to use immediately.
+- **Add Number** registers a number you already own. Colloqui adds it to its SIP trunk so calls to it can be answered. You then route the number to Colloqui at your carrier. See [Numbers](/deploy/numbers) for the routing details.
+
+Both need a payment method on the workspace.
+
+## Assigning an agent
+
+Select the number and choose an **Inbound Agent**. From then on, calls to that number are answered by that agent's latest published version.
+
+Assigning does two things you should know about:
+
+1. It **publishes the agent** if it has unpublished changes, creating a version described as *Assigned to* followed by the number's nickname.
+2. If another agent previously held the number and now has no numbers at all, that agent is **reverted to draft**, because an agent with no number cannot be reached.
+
+Removing or deleting a number has the same effect on the agent that loses it.
+
+## One agent, many numbers
+
+An agent can be assigned to as many numbers as you like, so one receptionist can answer several lines. Each number is independent: reassigning one does not affect the others.
+
+## By API
+
+The [Numbers](/api-reference/numbers/list) endpoints list, create, update and delete numbers. Assign an agent by updating `inbound_agent_id` or `outbound_agent_id`. Updates require the `nickname` field even when it is unchanged, so always send it.
+
+The caller's number and the number they dialled are available inside the call as the `user_number` and `agent_number` variables. See [Variables](/conversation-flows/variables).

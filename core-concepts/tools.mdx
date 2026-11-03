@@ -1,0 +1,40 @@
+---
+title: "Tools"
+description: "The actions an agent can take during a call."
+---
+
+A tool is something the agent can do besides talk. Colloqui has six built-in tool types, and they are the same whether you are building a single-prompt agent or a conversation flow.
+
+| Tool | What it does |
+|---|---|
+| [End call](/build-an-agent/tools/end-call) | Hangs up, optionally after a goodbye line |
+| [Transfer call](/build-an-agent/tools/transfer-call) | Connects the caller to a person or another number, warm or cold |
+| [Press IVR](/build-an-agent/tools/press-ivr) | Presses keys on a phone menu during a transfer |
+| [Send SMS](/build-an-agent/tools/send-sms) | Texts the caller or another number |
+| [Extract variable](/build-an-agent/tools/extract-dynamic-variable) | Pulls structured values out of the conversation |
+| [Custom function](/build-an-agent/tools/custom-function) | Calls your HTTP API and saves the response |
+
+## Where tools live
+
+On a **single-prompt agent**, tools are a list attached to the agent. The model sees all of them at every turn and decides when to use each one based on its name and description. Add them on the agent page under the prompt.
+
+In a **conversation flow**, most tools are nodes. A Transfer Call node, a Custom Function node or an Extract Variable node runs when the flow reaches it, which gives you deterministic control over when things happen. Nodes can also expose tools to the model for the duration of that node. See [Nodes](/conversation-flows/nodes).
+
+## Name and description matter
+
+Every tool has a name and a description. For single-prompt agents these are the only signal the model has about when to use the tool, so write the description as a condition:
+
+```text
+Transfer the caller to reception when they ask to speak to a person,
+or when they have a question you cannot answer from the knowledge base.
+```
+
+Names must start with a letter, underscore or hyphen and contain only letters, digits, underscores and hyphens. Descriptions are capped at 1,024 characters.
+
+## Tools that speak
+
+Transfer, SMS and custom function tools can speak while they work. Each has a static or prompt-based message for the moment it runs, and some have a second message for completion or failure. Use a static message for anything that must be said exactly, such as a compliance line, and a prompt when the wording should adapt to the conversation.
+
+## Tools that fail
+
+A transfer can be declined or ring out. An API call can time out or return an error. Every tool page below covers what the agent does on failure and how to make sure it never claims success when the action did not happen.

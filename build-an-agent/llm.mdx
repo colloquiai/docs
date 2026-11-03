@@ -1,0 +1,42 @@
+---
+title: "Language model"
+description: "Choose the model that drives the conversation."
+---
+
+The language model reads the transcript, the prompt and any tool results, and decides what the agent says and does next. Open **Configure LLM** on the agent page to change it.
+
+## Providers and models
+
+| Provider | Models |
+|---|---|
+| Azure OpenAI | GPT-4.1, GPT-4.1 mini |
+| AWS Bedrock | Claude Opus 4.6, Sonnet 4.6, Opus 4.5, Sonnet 4.5, Haiku 4.5, Opus 4.1, Sonnet 4, Claude 3.5 Haiku, Claude 3 Haiku |
+| Mistral | Mistral Large, Medium and Small, Magistral Medium and Small, Ministral 3 in 14B, 8B and 3B |
+| Groq | Llama 3.3 70B, Llama 3.1 8B, Llama 4 Scout, GPT-OSS 120B and 20B, Qwen3 32B, Groq Compound and Compound Mini |
+| Custom | Any OpenAI-compatible endpoint you host or subscribe to |
+
+The dashboard lists exactly what is available to your workspace, which may be a subset of the above.
+
+## Choosing
+
+New agents start on GPT-4.1, which is a good default for most calls. Move only for a reason:
+
+- **Latency.** Smaller models such as GPT-4.1 mini, Claude Haiku or the Groq-hosted models respond faster, which callers notice as a snappier agent. They follow long prompts less reliably, so test a prompt change on the smaller model before shipping it.
+- **Instruction following.** For a conversation flow with many rules per node, the larger models are more dependable. A flow that works on GPT-4.1 may misbehave on an 8B model.
+- **Data residency.** Bedrock lets you choose an AWS region.
+
+## Temperature
+
+Temperature controls how varied the wording is, from 0 to 1. New agents use 0.3. Lower values make the agent more predictable and are better for anything scripted. Values above 0.7 make it chattier and less reliable at following rules. Bedrock models also take a maximum token limit and a region.
+
+## Custom provider
+
+Choose **Custom** to point the agent at your own OpenAI-compatible endpoint. You supply the base URL, an API key and the model name. Keys you enter here are stored with the agent and visible to workspace members who can view it, so use a key scoped to this purpose.
+
+## Per-node models in a flow
+
+In a conversation flow, each node can override the agent's model. A common arrangement is a fast model on nodes that collect details and a larger one on the node that answers open questions. See [Nodes](/conversation-flows/nodes).
+
+## By API
+
+The model lives under `llm_config` on the agent. Provider and model names are validated against what your workspace can use, so copy the values from an existing agent rather than guessing. See [Update Agent](/api-reference/agents/update).

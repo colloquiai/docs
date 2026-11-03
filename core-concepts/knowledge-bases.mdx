@@ -1,0 +1,40 @@
+---
+title: "Knowledge bases"
+description: "Give an agent documents, web pages and text to answer from."
+---
+
+A knowledge base is a collection of content the agent can search during a call. When the caller asks something the prompt does not cover, the agent retrieves the most relevant passages and answers from them rather than from the model's general knowledge.
+
+## Sources
+
+A knowledge base can hold three kinds of source, mixed freely.
+
+- **Web pages.** Give a base URL and Colloqui crawls it, lists the pages it found, and lets you choose which to include. You can re-crawl later to pick up changes, and set a source to re-crawl automatically.
+- **Files.** Upload text, PDF, Word or CSV files up to 100 MB each.
+- **Text.** Paste content directly with a title. Useful for FAQs, policies and anything that does not exist as a document yet.
+
+After you add sources, ingestion runs in the background and usually finishes within a few minutes. The dashboard shows the status of each source and any that failed.
+
+## Attaching to an agent
+
+A knowledge base does nothing until an agent uses it. Attach one or more on the agent page.
+
+On a **single-prompt agent**, attached knowledge bases are available on every turn.
+
+In a **conversation flow**, you can attach a knowledge base to the agent, to individual nodes, or both. Attaching to a node means only that node retrieves from it. This matters more than it sounds: a knowledge base attached to the whole agent slows every turn slightly and gives nodes that should be collecting details something to wander off into. The usual pattern is one node that answers questions with the knowledge base attached, and nothing attached anywhere else.
+
+## Tuning retrieval
+
+Two settings on the agent control how much is retrieved and how closely it must match. See [Knowledge base tuning](/build-an-agent/knowledge-base-tuning).
+
+## Writing content that retrieves well
+
+Retrieval works on chunks of text, so content that reads well in chunks retrieves well.
+
+- Keep one topic per heading. A page that mixes opening hours, parking and refunds under one heading retrieves poorly for all three.
+- Put the answer near the question. A FAQ format works well.
+- Avoid pages that are mostly navigation, headings with no body, or tables of links. Crawled marketing pages often look like this, and they produce confident, empty answers. Prefer a pasted text source over a scraped page when the page is thin.
+
+## By API
+
+Use the [Knowledge Bases](/api-reference/knowledge-bases/list) endpoints. Creation is a multipart form rather than JSON because it accepts file uploads. Attach a knowledge base to an agent by including its id in the agent's `llm_config.knowledge_base_ids`. Check for an existing knowledge base with the same name before creating another, because duplicates are allowed and split your content between them.

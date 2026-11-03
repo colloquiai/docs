@@ -1,0 +1,44 @@
+---
+title: "Extract variable"
+description: "Turn what the caller said into structured values the agent can use."
+---
+
+Extract Variable reads the conversation and saves specific values, such as a name, a phone number or a yes-or-no answer, into named variables. Once saved, a variable can be spoken back, sent in an SMS, posted to your API, or used to decide where a flow goes next.
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| Tool Name, Description | What this tool extracts and when. |
+| Variables | One or more variables, each with a **Name**, a **Type** and a **Description**. |
+
+Variable types are string, number, integer, boolean and enum. An enum has a list of **Choices**, and the value will always be one of them, which makes it the right type for anything a flow will branch on.
+
+## The description is the instruction
+
+The description on each variable is a prompt to the extractor, and it is where extraction problems get fixed. A bare description like "the caller's email" produces guesses. A precise one produces exact values:
+
+```text
+The caller's email address, lower case, no spaces. It MUST match exactly
+the letters you spelled back to the caller and they confirmed, letter for
+letter. Do NOT drop, add or re-spell any character.
+```
+
+For numbers:
+
+```text
+Digits only, exactly as the caller said them. Do NOT reformat, group,
+round or infer any digit. Leave blank if the caller has not given it.
+```
+
+Say what to do when the value was not given. If you leave that unstated, the extractor may invent one.
+
+## Timing
+
+Extract soon after the detail is spoken. The extractor sees recent conversation, not the whole call, so a name given at the start of a long call may be out of reach by the time a late extraction runs. In a flow, place an Extract Variable node immediately after the node that collects the detail.
+
+Numeric comparisons in a flow need a numeric type. A string "9" compares as text and sorts after "10".
+
+## In a conversation flow
+
+Extract Variable is a node. It speaks nothing, runs the extraction, and moves on through its single outgoing transition. Follow it with a branch when the next step depends on what was extracted. See [Nodes](/conversation-flows/nodes) and [Variables](/conversation-flows/variables).

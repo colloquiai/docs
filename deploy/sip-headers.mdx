@@ -1,0 +1,24 @@
+---
+title: "SIP headers"
+description: "Pass context to your phone system on transfers."
+---
+
+When the agent transfers a call, it can add custom SIP headers to the transfer. A PBX or contact centre on the receiving end can read them to route the call, pop a screen, or tag the interaction.
+
+## Configuring headers
+
+In the transfer tool or node, open **Custom SIP Headers** and add header names and values. Header names conventionally start with `X-`, for example `X-Caller-Name`. Values can include variables, so the caller's details collected earlier in the call travel with the transfer:
+
+| Header | Value |
+|---|---|
+| `X-Caller-Name` | `{{caller_name}}` |
+| `X-Caller-Number` | `{{user_number}}` |
+| `X-Reason` | `{{enquiry_type}}` |
+
+## On the receiving side
+
+Your phone system has to be configured to read the headers. How depends on the system; most PBXs expose custom headers to dial plans or routing rules. Test with a single header first and confirm it arrives before relying on it.
+
+## By API
+
+Headers are the `custom_sip_headers` object on a transfer tool or transfer node config, as header name to value pairs.

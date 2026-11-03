@@ -1,0 +1,28 @@
+---
+title: "Knowledge base tuning"
+description: "Control how much the agent retrieves and how closely it must match."
+---
+
+Two settings on the agent decide how retrieval behaves across every knowledge base attached to it.
+
+## Chunks to retrieve
+
+How many passages are pulled into the model's context for each question, from 1 to 10. More chunks give the model more to work with on broad questions and cost latency and attention on every turn. Start at 3. Raise it if the agent misses answers that are in the knowledge base. Lower it if answers wander or the agent gets slow.
+
+## Similarity threshold
+
+How closely a passage must match the question to be included, from 0.30 to 0.95. Higher is stricter. At a low threshold the agent retrieves something for almost any question, including things the knowledge base does not actually cover, and then answers confidently from a loosely related passage. At a high threshold it retrieves nothing unless the match is close, and the prompt decides what happens then.
+
+Start around 0.6. If callers get answers that are plausible but wrong, raise it. If the agent says it does not know things that are plainly in the content, lower it.
+
+## Tell the agent what to do with nothing
+
+The prompt should say what happens when retrieval returns nothing. "If you cannot find the answer, say so and offer to take a message" is better than letting the model fill the gap.
+
+## Attach where it is needed
+
+In a conversation flow, attach the knowledge base to the node that answers questions rather than to the whole agent. See [Knowledge bases](/core-concepts/knowledge-bases).
+
+## By API
+
+These are `knowledge_base_config.chunks_to_retrieve` and `knowledge_base_config.similarity_threshold` on the agent.

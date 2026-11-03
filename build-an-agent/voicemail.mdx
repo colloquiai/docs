@@ -1,0 +1,28 @@
+---
+title: "Voicemail"
+description: "What happens when a transfer reaches voicemail."
+---
+
+Voicemail handling applies to transfers. When the agent transfers a caller and the destination goes to voicemail, you decide what the agent does.
+
+## Voicemail detection
+
+Turn on **Voicemail Detection** in the transfer tool or node. The agent listens to the destination as it connects and recognises a voicemail greeting.
+
+## What to do when it is detected
+
+| Action | What happens |
+|---|---|
+| Hang up | The transfer leg is dropped and the caller comes back to the agent as if the transfer was declined. The caller never hears the voicemail. |
+| Message | The agent leaves the text you provide as a message, then returns to the caller. You can have it hang up after the message. |
+| Prompt | The agent composes a message from your description, for example "leave the caller's name and number and say they would like a call back". |
+
+Hang up is the right default for agents that take messages themselves. The caller is told the person is not available and the agent offers to take a message, which is better than leaving the caller to a stranger's voicemail.
+
+## Design the return path
+
+Whatever the action, the caller is back with the agent afterwards. In a conversation flow, that is the transfer node's failure transition, and it should lead to a node that takes a message or offers a callback. In a single-prompt agent, say what to offer after a failed transfer in the global prompt.
+
+## By API
+
+The fields are `voicemail_detection`, `voicemail_response_action_type` (`hangup`, `message` or `prompt`), `voicemail_response_text` and `voicemail_hangup_after_message` on a transfer tool or transfer node config.

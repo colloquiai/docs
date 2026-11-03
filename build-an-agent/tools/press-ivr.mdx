@@ -1,0 +1,21 @@
+---
+title: "Press IVR"
+description: "Navigate a phone menu on the caller's behalf."
+---
+
+Press IVR lets the agent press keys on a touch-tone menu, for example to reach the right department when transferring into a phone system that answers with "press 1 for sales".
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| Tool Name, Description | When and how the agent should use the keypad. Describe the menu if you know it, for example "press 2 for accounts, then 1 for existing customers". |
+| Pause detection delay | How long a silence must last, between 1 and 6 seconds, before the agent decides the menu has finished speaking and it is time to press. |
+
+## How it behaves
+
+The agent listens to the menu, waits for the pause, and presses the digit its description or the menu prompt calls for. Menus that read options quickly need a shorter pause delay; menus with long pauses between options need a longer one, or the agent will press before hearing every option.
+
+## Where it is used
+
+Press IVR is a tool, not a node. Attach it to a single-prompt agent, or to a Conversation node in a flow, alongside a Transfer Call tool whose destination answers with a menu.

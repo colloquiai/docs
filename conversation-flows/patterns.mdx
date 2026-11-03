@@ -1,0 +1,62 @@
+---
+title: "Patterns"
+description: "Flow shapes that hold up in production, and the failures they prevent."
+---
+
+These patterns come from live agents. Each one exists because the obvious alternative failed on real calls.
+
+## Collect, extract, act, confirm
+
+The core transaction shape:
+
+```text
+Collect (conversation)
+  → Extract (extract variable)
+  → Act (custom function)
+      ├─ id exists → Confirmed (static)
+      └─ else      → Failed (conversation, does not claim success)
+```
+
+The collection node must not have a path to End Call that skips the function. If it does, the agent will eventually tell a caller their booking is made when nothing was sent.
+
+## Static question, always edge, logic split
+
+For any closed question, do not put prompt conditions on the node that asks it. Ask with a static instruction, exit on an always edge, and route on a Logic Split with prompt conditions plus an else:
+
+```text
+"Is that correct?" (static)
+  → always edge
+  → Route After Confirm (logic split)
+      ├─ caller confirms           → next step
+      ├─ caller gives a correction → re-extract
+      ├─ caller says something is wrong, no value → ask what to change
+      └─ else                      → read back again
+```
+
+On a static node with prompt conditions, a plain "yes" often produces a spoken reply instead of a transition, and the model then runs the whole task from the wrong node. The always edge fires deterministically.
+
+Put the correction edges before the confirm edge. A reply like "no, it's 0412" must be caught as a correction, not as agreement.
+
+## Confirmation is a read-back, not a prompt
+
+"Confirm once, then move on" in a prompt instruction does not hold. The model keeps seeking certainty. A static read-back line plus the routing above has no loop to fall into.
+
+## Every ask has a cap
+
+A caller who never answers a question can trap a conversation node forever. Write the cap into the instruction: ask at most twice, then say "no problem" and move on. Give the forward edge a condition that accepts "given, declined, or asked twice without an answer", and give the extraction a fallback value so downstream static text has something to say. Then branch on that fallback so a static line never speaks "not given" aloud.
+
+## Hub and spoke
+
+One router node that every topic returns to, so a caller can change subject without starting over. Route "something different" to the router, not to the greeting.
+
+## Time-gated transfer
+
+Decide open or closed with a Logic Split on the hour, and make the closed path structurally unable to reach the Transfer Call node. A prompt rule can be argued with; a missing edge cannot. Keep the hours in the equation, in the "we're closed" line and in the knowledge base identical, and change all three together.
+
+## Only End Call says goodbye
+
+Put the farewell in the End Call node's static text, and put a rule in the global prompt that no other step says goodbye. Otherwise callers hear two farewells. Also ban the exchange of pleasantries: when the caller says "thanks" after the task is done, the agent should move to End Call, not reply with another pleasantry.
+
+## What a prompt cannot fix
+
+Some behaviour comes from the runtime, not the model: a filler phrase such as "one moment" when the agent is thinking, a transition that fires on an interim transcript, or a reply cut short by a backchannel. If a prompt change does not move a symptom after two attempts, look at the structure instead. Fix the structure before the prompt.

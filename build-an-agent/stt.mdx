@@ -1,0 +1,39 @@
+---
+title: "Speech-to-text"
+description: "Transcription, key terms, and how the agent decides the caller has finished speaking."
+---
+
+Speech-to-text turns the caller's audio into the text the model reads. Its settings also decide two things callers feel directly: how long the agent waits before replying, and how easily it stops when the caller talks over it.
+
+## Provider and model
+
+| Provider | Models |
+|---|---|
+| Deepgram | Nova 3, Flux (English) |
+| AssemblyAI | Universal Streaming (English), Universal 3.5 Pro |
+
+New agents use Deepgram Nova 3. Both providers are accurate on clear phone audio. If you have callers with strong accents or a lot of background noise, test a short set of real recordings on each before deciding.
+
+## Key terms
+
+Key terms are words you expect callers to say that a transcriber might not know: product names, street names, surnames, industry jargon. Add them and the transcriber favours them when the audio is ambiguous. Each term is capped at 255 characters.
+
+Turn on **automatic key term detection** to let the agent add terms it hears during the call to the list for the rest of that call. This helps when a caller spells a name once and then uses it repeatedly.
+
+Short, common words are mistranscribed more often than long ones. If your agent keeps hearing "no" as "oh" or "yes" as "yeah", add them as key terms.
+
+## Response eagerness
+
+Shown as **Response Eagerness** in the dashboard and `responsiveness` in the API, this is a value from 0 to 1 that sets how long a pause counts as the end of the caller's turn. Higher values make the agent reply sooner. Lower values let the caller pause mid-sentence without being cut off.
+
+The default of 1 suits short, quick exchanges. For callers who think out loud, or who are reading details from a document, try 0.5 so the agent waits a little longer. Flows that collect numbers one digit at a time want a lower value too.
+
+## Interruption sensitivity
+
+Shown as **Interruption Sensitivity**, from **Patient** to **Instant**, this sets how quickly the agent stops talking when the caller speaks. At the instant end, any sound stops it, which means a cough or an "mm-hmm" can cut off a sentence. At the patient end the caller has to say a few words before the agent yields.
+
+Leave it high for conversational agents. Lower it for agents that read back long confirmations, where backchannel noises would otherwise interrupt the read-back and the agent would treat the interruption as an answer.
+
+## By API
+
+These settings live under `stt_config`. Responsiveness and interruption sensitivity are numbers from 0 to 1. See [Update Agent](/api-reference/agents/update).

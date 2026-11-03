@@ -1,0 +1,54 @@
+---
+title: "Agents"
+description: "What an agent is, the two ways to build one, and how drafts and published versions work."
+---
+
+An agent is a single resource that holds everything needed to answer a call: the language model, the prompt, speech-to-text, text-to-speech, tools, knowledge bases and guardrails. You do not wire separate services together. You configure one agent, attach it to a number, and publish.
+
+## Two kinds of agent
+
+Choose the kind when you create the agent. It cannot be changed afterwards, though you can duplicate an agent and rebuild it the other way.
+
+<CardGroup cols={2}>
+  <Card title="Single Prompt" icon="file-lines">
+    One global prompt drives the whole call. The model decides what to say and which tools to use at every turn. Fastest to build, best for open conversations such as general enquiries, FAQ answering and simple message taking.
+  </Card>
+  <Card title="Conversation Flow" icon="diagram-project">
+    A visual flow of nodes connected by transitions. Each node has its own instruction, and the flow decides when the agent moves on. Best when a call must follow a structure: collect details in order, confirm them, call your API, then end. See [Conversation flows](/conversation-flows/overview).
+  </Card>
+</CardGroup>
+
+The settings below apply to both kinds. In a flow, the global prompt is still present and applies to every node.
+
+## What an agent contains
+
+| Area | What it controls | Guide |
+|---|---|---|
+| Prompt | The global prompt, who speaks first, and the welcome message | [Prompt](/build-an-agent/prompt) |
+| LLM | Provider, model and temperature | [Language model](/build-an-agent/llm) |
+| Speech-to-text | Transcription provider and model, key terms, how quickly the agent responds and how easily it is interrupted | [Speech-to-text](/build-an-agent/stt) |
+| Text-to-speech | Voice provider, model, voice, speed, background sound, backchannels | [Text-to-speech](/build-an-agent/tts) |
+| Call settings | Recording, maximum call length, ring time | [Voice behavior](/build-an-agent/voice-behavior) |
+| Tools | Actions the agent can take mid-call | [Tools](/build-an-agent/tools/overview) |
+| Knowledge bases | Documents the agent can answer from | [Knowledge bases](/core-concepts/knowledge-bases) |
+| Guardrails | Checks on what callers say and what the agent says | [Guardrails](/build-an-agent/guardrails) |
+| Timezone | Lets the agent know the current local date and time | [Variables](/conversation-flows/variables) |
+
+## Draft, published, versions
+
+Every agent has one draft, which is what you edit, and zero or more published versions, which are what answers calls.
+
+- A new agent is a **draft**. Saving changes the draft only.
+- **Publishing** snapshots the draft as a numbered version and makes it live on every number assigned to the agent. Each version carries an optional description of what changed.
+- Editing a published agent changes the draft again. Calls keep using the last published version until you publish.
+- You can **restore** any earlier version. Restoring copies it into the draft, so you still review and publish.
+
+An agent must have at least one number assigned before it can be published, and assigning a number publishes it automatically. See [Versioning and publishing](/versioning/overview).
+
+## Agents by API
+
+The [Agents](/api-reference/agents/list) endpoints expose the same object the dashboard edits. Three things to know when working by API:
+
+- Only `name` is required to create an agent. Set `agent_type` to `single_prompt` or `conversation_flow` at creation.
+- Update replaces the whole configuration you send, so read the agent first, change what you need, and send it back.
+- Set `timezone` with an update after creation, then read the agent back to confirm it stuck.

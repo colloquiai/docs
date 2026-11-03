@@ -1,0 +1,44 @@
+---
+title: "Webhooks"
+description: "Register an endpoint to receive events from your workspace."
+---
+
+A webhook is an HTTPS endpoint you register to receive events from Colloqui as they happen, so your own systems can react without polling the API.
+
+## Registering an endpoint
+
+Webhooks are managed by API. Create one with [Create Webhook](/api-reference/webhooks/create):
+
+```bash
+curl -X POST https://dashboard.colloqui.ai/api/v1/webhooks \
+  -H "Authorization: Bearer $COLLOQUI_API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/colloqui/events",
+    "check_https": true,
+    "retries": 3,
+    "timeout": 10
+  }'
+```
+
+| Field | What it does |
+|---|---|
+| `url` | Where events are sent. Required. |
+| `payload` | Extra fields to include with every delivery, for example a shared identifier for your side. |
+| `check_https` | Require a valid HTTPS certificate on your endpoint. Recommended. |
+| `logging_enabled` | Keep a log of deliveries for troubleshooting. |
+| `retries` | How many times to retry a failed delivery, 0 to 10. Default 2. |
+| `timeout` | Seconds to wait for your endpoint to respond, 1 to 1800. Default 5. |
+
+Deliveries are HTTP POST requests with a JSON body. Respond with any 2xx status to acknowledge. A non-2xx response or a timeout counts as a failure and is retried.
+
+## Handling deliveries
+
+- Return 2xx quickly and do the work afterwards. Your timeout setting bounds how long Colloqui waits.
+- Expect retries. Treat deliveries as at-least-once and make your handler idempotent on the event's id.
+- Route on the event type rather than assuming a fixed set, so new events do not break your handler.
+
+## Managing webhooks
+
+List, update and delete endpoints with the [Webhooks](/api-reference/webhooks/list) endpoints.

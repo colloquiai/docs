@@ -1,0 +1,33 @@
+---
+title: "Workspaces"
+description: "The container for your agents, numbers, knowledge bases, team and billing."
+---
+
+Everything you create in Colloqui belongs to a workspace. Agents, phone numbers, knowledge bases, guardrails, call history, team members and the payment method all live inside one, and nothing is shared across workspaces.
+
+Most customers need exactly one. Create more when you need hard separation, for example one per client if you are an agency, or one per brand with its own billing.
+
+## Members and roles
+
+Invite people from **Settings → Workspace → Users**. Each member has one role:
+
+| Role | What they can do |
+|---|---|
+| Owner | Everything, including deleting the workspace. There is one owner. |
+| Admin | Everything the owner can do except delete the workspace. Manages billing, members and settings. |
+| Developer | Build, test and monitor agents, numbers and knowledge bases. Cannot change billing. |
+| Member | View agents, call history and analytics. Cannot change anything. |
+
+Invites are sent by email and can be cancelled or re-roled from the same page before they are accepted.
+
+## API keys are bound to a workspace
+
+An API key belongs to the workspace that was current when it was created. Every request made with it is scoped to that workspace, and there is no way to point a key at a different one. If you work across workspaces, create one key per workspace. See [Authentication](/get-started/authentication).
+
+## Billing is per workspace
+
+The payment method, invoices and agent bundles are all set at the workspace level under **Billing**. A workspace needs a payment method before its agents can be edited or numbers added. See [Billing](/workspace/billing).
+
+## Managing workspaces by API
+
+The [Workspaces](/api-reference/workspaces/list) endpoints create, rename and delete workspaces and manage their members. Note that listing workspaces returns every workspace your user belongs to, while every other list endpoint returns only the key's own workspace.

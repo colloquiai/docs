@@ -1,0 +1,50 @@
+---
+title: "Guardrails"
+description: "Detect things that should not be said, by the caller or the agent, and respond safely."
+---
+
+A guardrail watches for a category of content and, when it detects it, blocks the turn and speaks a response you control. Guardrails live in the workspace under **Guardrails** and are attached to agents, so one definition can protect several agents.
+
+## Creating a guardrail
+
+Open **Guardrails** and click **Create Guardrail**.
+
+| Field | What it does |
+|---|---|
+| Name | A short, recognisable name. |
+| Description | What the guardrail detects. Tell the model what to look for and how strict to be. |
+| Examples | Sample lines that should trigger it, one per line. |
+| Keywords | Words or phrases that should trigger it, one per line. |
+| Threshold | How confident the detector must be, from 0 to 1, before it acts. |
+| When violated | What to do. Currently the action is to block the turn. |
+| Response Type, Response | **Static** speaks your text exactly. **Prompt** has the model compose a response from your description. |
+
+Examples do more than keywords. A guardrail for "the caller asks for legal advice" with five realistic examples catches phrasings that a keyword list would miss.
+
+## Attaching to an agent
+
+On the agent page, open the guardrails section and click **Add Guardrail**. Choose the guardrail and set **Execute on**: the caller's **input**, the agent's **output**, or both.
+
+- **Input** guardrails catch what callers say, such as abuse, attempts to get the agent off-task, or requests the business must not fulfil.
+- **Output** guardrails catch what the agent is about to say before it is spoken, such as pricing commitments or medical advice.
+
+## Semantic guardrails
+
+Every agent also has a built-in semantic guardrail, on by default, that catches common off-task and unsafe content without any configuration. Turn it off only if it interferes with a legitimate use.
+
+## Writing the response
+
+The response is what the caller hears instead of the blocked turn. Keep it short, non-judgemental and forward-looking:
+
+```text
+I'm not able to help with that on this call, but I can take a message for
+the team. Would you like me to do that?
+```
+
+## Guardrails and prompts
+
+A guardrail is a safety net, not a substitute for the prompt. If the agent should never quote prices, say so in the prompt and add an output guardrail for pricing. The prompt prevents most cases; the guardrail catches the rest.
+
+## By API
+
+Manage definitions with the [Guardrails](/api-reference/guardrails/list) endpoints. Attach them through `guardrails_config.guardrails` on the agent, each with its id and the sources it runs on, and toggle the built-in one with `guardrails_config.semantic_guardrail`.

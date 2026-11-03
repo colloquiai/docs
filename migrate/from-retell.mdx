@@ -1,0 +1,62 @@
+---
+title: "Migrating from Retell"
+description: "What maps directly, what changes, and what to check."
+---
+
+If you have built agents on Retell AI, the way you think about them carries over: prompts, tools, flows and testing all work the same way. The configuration format does not, so an agent is re-created rather than imported. This page is the map.
+
+## Agent types
+
+| Retell | Colloqui |
+|---|---|
+| Single prompt agent | Single Prompt agent |
+| Conversational flow | Conversation Flow agent |
+
+## Flow nodes
+
+| Retell node | Colloqui node |
+|---|---|
+| Conversation | Conversation |
+| Logic split | Logic Split |
+| Extract variable | Extract Variable |
+| Function | Custom Function |
+| Transfer call | Transfer Call, which also supports several destinations in one node |
+| SMS | Send SMS |
+| End | End Call |
+| Global node | Any node with a global node condition |
+| Component, code, MCP, bridge | No equivalent |
+
+## Structural differences
+
+- **Edges live on nodes.** In Retell, edges are a top-level list. In Colloqui each node carries its own edges, plus its else, always and skip-response edges.
+- **Functions are nodes.** Retell defines a tool once and references it from a node. Colloqui puts the function's full configuration on the Custom Function node, or on the tool for a single-prompt agent.
+- **Transfer directories.** One Transfer Call tool holds a directory of destinations with descriptions, where Retell typically needs one node per destination.
+- **Voice ids** are provider ids rather than Retell's named voices. Choose from the dashboard's catalog.
+- **Workspaces.** An API key is bound to one workspace, so point your deployment at the right one by creating the key there.
+
+Both platforms agree that the else edge's condition is the fixed word "Else", that transfer numbers are international format, and that prompt and equation conditions are the two kinds of edge.
+
+## Retell features without a direct equivalent
+
+Plan replacements for these before you move:
+
+- **Handbook toggles** such as speech normalisation, phonetic spelling and personality presets. Write the behaviour into the prompt instead.
+- **PII redaction**, **post-call analysis configuration** and **flex mode**.
+- **Ambient sound selection** maps to Colloqui's background sound options.
+- **Version titles.** Colloqui versions carry a description instead.
+- **Chat agents and batch testing.** Colloqui agents are voice agents.
+- **Guardrail topic lists.** Colloqui guardrails are standalone definitions attached to agents with input and output sources. See [Guardrails](/build-an-agent/guardrails).
+
+## What still applies
+
+The method is unchanged. Critical rules at the top of the prompt. One question per turn. Explicit failure paths on every tool. A structural fix over a prompt fix when the model keeps ignoring an instruction. Test in voice, not only in text. See [Prompt engineering](/core-concepts/prompt-engineering) and [Patterns](/conversation-flows/patterns).
+
+## Checklist
+
+- Create the agent with the matching type.
+- Rebuild tools as Colloqui tools or nodes; collapse transfer nodes into one directory.
+- Move each edge onto its source node.
+- Choose a voice and model from the Colloqui catalog.
+- Rewrite handbook behaviour into the prompt.
+- Set the agent's timezone.
+- Assign a number, which publishes the agent, and test with a real call.

@@ -1,0 +1,39 @@
+---
+title: "End call"
+description: "Hang up cleanly, with or without a goodbye."
+---
+
+End Call hangs up the call. It is the one tool every agent should have, because an agent with no way to end a call will keep trading pleasantries until the caller hangs up.
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| Tool Name | Defaults to `end_call`. |
+| Description | When the agent should end the call. |
+| Goodbye | **Static message** says your text exactly. **Prompt-based** lets the model phrase a farewell from your description. If neither is set, the call ends silently. |
+
+New single-prompt agents come with an End Call tool already attached.
+
+## When to end
+
+The description decides when the agent hangs up, and the most common mistake is ending too early. A caller saying "thanks" or "ok" after an answer is not finished; they are acknowledging. Write the condition to require an explicit signal:
+
+```text
+End the call only when the caller clearly says they are done: "no, that's
+all", "nothing else", "goodbye" or similar. A bare "thanks", "ok" or "great"
+is NOT the end of the call; ask once whether there is anything else.
+```
+
+## Who says goodbye
+
+Let the End Call tool say the farewell and nothing else. If the prompt also tells the agent to say goodbye before ending, callers hear it twice. A line in the global prompt that reserves goodbyes for the End Call step fixes this for the whole agent:
+
+```text
+ONLY THE END CALL STEP SAYS GOODBYE. Never say goodbye, "thanks for calling"
+or "have a great day" yourself. When the caller is finished, end the call.
+```
+
+## In a conversation flow
+
+End Call is a node. Its instruction is usually **static** text carrying the farewell, and it has no outgoing transitions. Every node a caller could finish on needs a transition to it, written with the same care about bare acknowledgements as above. See [Edges](/conversation-flows/edges).

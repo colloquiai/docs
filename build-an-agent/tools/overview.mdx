@@ -1,0 +1,37 @@
+---
+title: "Tools overview"
+description: "Add actions to a single-prompt agent or a flow, and write descriptions the model follows."
+---
+
+Tools let the agent act: hang up, transfer, text, extract details and call your systems. This page covers what is common to all of them. Each tool has its own page with its settings.
+
+## Adding a tool
+
+**Single-prompt agent.** On the agent page, add tools in the tools section under the prompt. Each tool opens a dialog with a **Tool Name**, a **Description** and the tool's own settings. The model sees every tool on every turn and chooses when to use one.
+
+**Conversation flow.** Drag a node of the matching type onto the canvas. The node runs when the flow reaches it. Transfer Call, Send SMS, Extract Variable, Custom Function and End Call all exist as nodes. A Conversation node can also carry tools of its own that the model may call while in that node. See [Nodes](/conversation-flows/nodes).
+
+## Writing the description
+
+For a single-prompt agent, the description is the only thing that tells the model when to use the tool. Write it as the trigger condition, and include when not to:
+
+```text
+Send the caller our address by SMS when they ask for directions or the
+address. Do not send it unless they ask.
+```
+
+Vague descriptions produce tools that fire too often or never. If a tool keeps being used at the wrong moment, the fix is nearly always a more specific description, not a prompt rule elsewhere.
+
+## Speaking during tools
+
+Transfer, SMS and custom function tools can say something as they run. Each spoken line is either **Static message**, said word for word, or **Prompt-based**, where you describe what to say and the model phrases it. Prefer static for anything that must be exact, and for short lines, because a prompt-based line invites the model to pad.
+
+## Failure paths
+
+Every tool can fail: a transfer declined, an API down, an SMS rejected. What the agent does next is the difference between a reliable agent and one that tells callers a booking is confirmed when it is not.
+
+In a conversation flow, give every tool node an explicit failure transition to a node that does not claim success. In a single-prompt agent, say in the global prompt what to do when a tool fails, and never let the agent claim an action succeeded unless the tool result says so.
+
+## Variables
+
+Tools read and write variables. Extract Variable creates them, Custom Function can save response fields into them, and any tool setting can reference one by wrapping its name in double curly braces. See [Variables](/conversation-flows/variables).

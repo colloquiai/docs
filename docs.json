@@ -8,9 +8,6 @@
     "dark": "#1E40AF"
   },
   "favicon": "/favicon.svg",
-  "openapi": [
-    "openapi.patched.yaml"
-  ],
   "navigation": {
     "tabs": [
       {
@@ -52,7 +49,18 @@
               "build-an-agent/tools/extract-dynamic-variable",
               "build-an-agent/tools/custom-function",
               "build-an-agent/knowledge-base-tuning",
-              "build-an-agent/voicemail"
+              "build-an-agent/voicemail",
+              "build-an-agent/guardrails"
+            ]
+          },
+          {
+            "group": "Conversation Flows",
+            "pages": [
+              "conversation-flows/overview",
+              "conversation-flows/nodes",
+              "conversation-flows/edges",
+              "conversation-flows/variables",
+              "conversation-flows/patterns"
             ]
           },
           {
@@ -80,6 +88,12 @@
             "pages": [
               "workspace/overview",
               "workspace/billing"
+            ]
+          },
+          {
+            "group": "Migrate",
+            "pages": [
+              "migrate/from-retell"
             ]
           }
         ]

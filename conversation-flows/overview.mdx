@@ -1,0 +1,39 @@
+---
+title: "Conversation flows"
+description: "Build an agent as a flow of nodes when the call must follow a structure."
+---
+
+A conversation flow is an agent whose call is a graph. Each node does one thing: hold a conversation about one topic, extract a value, call an API, transfer, send a text, or end the call. Edges between nodes say when the call moves from one to the next. The flow decides the structure; the model decides the words.
+
+Use a flow when a single prompt is not reliable enough. The usual signs are a call that must collect details in a fixed order, confirm them, act on them and only then end, or an agent that keeps skipping steps, repeating itself, or claiming to have done something it did not.
+
+## The canvas
+
+Open a conversation-flow agent and switch to the **Flow** tab. The canvas shows an entry point marker connected to the start node. Add nodes from the palette, connect them by dragging from a node's transition to another node, and click a node to edit its instruction, transitions and settings. Save when done; the flow is published the same way as any agent.
+
+## Node types
+
+| Node | Role |
+|---|---|
+| Conversation | Speaks with the caller about one topic and routes on what they say |
+| Logic Split | Routes on variable values without speaking |
+| Extract Variable | Saves values from the conversation into variables |
+| Custom Function | Calls your API and saves the response |
+| Transfer Call | Transfers, with a failure path back into the flow |
+| Send SMS | Sends a text |
+| Sub Agent | A conversation node that can use tools inline |
+| End Call | Speaks the farewell and hangs up |
+
+See [Nodes](/conversation-flows/nodes) for each one.
+
+## Edges
+
+An edge is a transition with a condition. Conditions are either a prompt, where the model judges whether the caller's reply matches, or an equation on variables, which is evaluated exactly. Each node also has an **else** edge for when nothing matched, and can have an **always** edge that fires after the caller's next reply no matter what. See [Edges](/conversation-flows/edges).
+
+## The global prompt still applies
+
+The agent's global prompt sits above every node. Put the agent's identity, tone and hard rules there, and keep node instructions about that node's job. See [Prompt](/build-an-agent/prompt).
+
+## Start with a pattern
+
+Most flows are built from a handful of shapes: collect, extract, act, confirm, end. [Patterns](/conversation-flows/patterns) shows the ones that hold up in production and the mistakes they prevent.

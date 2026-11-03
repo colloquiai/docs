@@ -1,0 +1,31 @@
+---
+title: "Versioning and publishing"
+description: "Drafts, published versions, descriptions and restores."
+---
+
+Every agent has one draft and a history of published versions. The draft is what you edit. The latest published version is what answers calls.
+
+## Publishing
+
+Click **Publish** on the agent page, enter a short description of what changed, and confirm. Colloqui snapshots the draft as the next numbered version and makes it live on every number assigned to the agent. The description appears in the version history and is the only record of why a version exists, so write one every time: "Shorter greeting, transfer to accounts added" is enough.
+
+Two rules:
+
+- An agent must have at least one number assigned before it can be published.
+- Assigning a number to an agent publishes it automatically, with a description that says which number was assigned.
+
+## Unpublished changes
+
+After publishing, any edit makes the draft differ from the live version again. The agent page shows **Unpublished changes** until you publish or discard them. Calls are unaffected in the meantime.
+
+## Version history
+
+Open **Agent Versions** to see every published version with its number, description and date, and which one is current. Choose a version and click **Restore** to copy it into the draft. Restoring does not publish; review the draft and publish when ready. The restored configuration becomes a new version with its own number, so history is never rewritten.
+
+## Draft
+
+Agents go back to draft in one situation: when they lose their last number. An agent with no number cannot be reached, so it is unpublished rather than left live with nowhere to answer. Assign a number to bring it back.
+
+## By API
+
+[Publish Agent](/api-reference/agents/publish) accepts an optional description. [Agent Versions](/api-reference/agent-versions/list) lists versions, [Show Latest](/api-reference/agent-versions/show-latest) returns the live one, and [Restore](/api-reference/agent-versions/restore) copies a version into the draft. The draft itself is what [Show Agent](/api-reference/agents/show) returns.

@@ -1,0 +1,29 @@
+---
+title: "Call history"
+description: "Every call, with transcript, recording and analysis."
+---
+
+**Call History** lists every call your agents have handled. Open a call for the full transcript, the recording, and an automatic analysis.
+
+## The list
+
+Each row shows the time, agent, channel, duration, cost and session id. Filter by date range with the presets, by agent, and by direction, and export the list for the period you are looking at.
+
+## A call
+
+Opening a call shows:
+
+- **Details.** Caller and dialled numbers, direction, start and end time, duration, how the call ended, and the end-to-end latency.
+- **Transcription.** The full transcript, turn by turn, including tool results so you can see what the agent did as well as what it said.
+- **Recording.** Playback and download, if recording was enabled on the agent.
+- **AI Analysis.** A concise and a detailed summary, whether the call was successful, the outcome, caller sentiment, and flags for escalation and other signals. Analysis runs after the call ends and appears a short while later.
+
+Copy the call id from here when raising a support request.
+
+## How a call ends
+
+The end reason tells you who hung up and why: the caller, the agent through an End Call tool, a transfer completing, a timeout, or an error. Reviewing end reasons across a day is the quickest way to spot an agent that is hanging up too early or a transfer destination that never answers.
+
+## By API
+
+[List Call Histories](/api-reference/call-history/list) accepts a date range and cursor pagination. [Show Call History](/api-reference/call-history/show) returns the call with its analysis. The call id matches the `call_id` variable available inside the call, which lets you link a Custom Function request to the call that made it.

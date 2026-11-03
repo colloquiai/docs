@@ -1,0 +1,40 @@
+---
+title: "Send SMS"
+description: "Text the caller, or someone else, during the call."
+---
+
+Send SMS sends a text message mid-call. Typical uses are sending an address, a booking reference, a link, or a confirmation to the caller, and notifying a staff member about a message the caller left.
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| Tool Name, Description | When to send. |
+| Send to | **Caller's number** texts the number the caller is calling from. **Different number** texts the **Send To Number** you enter. |
+| Content Type | **Static** sends your text exactly. **Prompt** has the model compose the message from your description. |
+| Content | The message, or the description of it. |
+
+Numbers must be in international format.
+
+## Composing messages
+
+Static content can include variables, so a confirmation can be personalised without letting the model write it:
+
+```text
+Hi, your appointment with Harbour Dental is confirmed for {{appointment_time}}.
+Reply to this message if you need to change it.
+```
+
+Prompt content is useful when the message should summarise the conversation, such as a note to staff. Tell the model what to include and keep it short; SMS is not the place for a paragraph.
+
+## Confirm before sending
+
+If the message is going to the caller, there is no need to ask. If the content depends on something the caller said, confirm the detail first, especially phone numbers and email addresses, and only then send.
+
+## Billing
+
+SMS is charged per message on the agent's bundle. See [Billing](/workspace/billing).
+
+## In a conversation flow
+
+Send SMS is a node. Put it after the node that collects or confirms whatever the message depends on, so every variable it references has a value. A variable that was never set is sent as its literal placeholder text.

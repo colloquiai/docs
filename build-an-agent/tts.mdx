@@ -1,0 +1,39 @@
+---
+title: "Text-to-speech"
+description: "Choose a voice and shape how it sounds."
+---
+
+Text-to-speech turns the agent's words into audio. Open **Configure TTS** on the agent page to choose a provider, model and voice, and the speech settings beneath it to tune delivery.
+
+## Providers and models
+
+| Provider | Models | Notes |
+|---|---|---|
+| ElevenLabs | Flash v2.5, Turbo v2.5, v4, v4 Turbo | Widest voice range. Flash is the lowest latency. |
+| Cartesia | Sonic 3.6, 3.5, 3, 2, Turbo, Sonic | Fast, natural, with a strong set of Australian voices. |
+| Rime | Mist v3 | Uses a named speaker rather than a voice id. |
+| Deepgram | Flux TTS | Pairs with Deepgram transcription. |
+
+New agents use ElevenLabs Flash v2.5. The dashboard lists the voices available for each provider with a short description of each. Listen to a few before choosing. The voice sets the caller's impression of your business more than any other single setting.
+
+## Speed
+
+Speed scales the voice's natural pace. Below 1.0 is slower, above is faster. Most voices are best between 0.9 and 1.1. Slow down slightly for agents that read back phone numbers or reference codes.
+
+## Background sound
+
+**Background Sound** adds low-level ambience under the voice: office ambience or keyboard typing. It makes the agent sound like it is somewhere rather than nowhere, which some callers find more natural. **Background Sound Volume** sets the level. Leave it off for agents that read a lot of detail, because it reduces clarity on poor lines.
+
+## Backchannels
+
+With backchannels on, the agent interjects small acknowledgements such as "mm-hmm" while the caller is talking, so the line does not go dead during a long explanation. **Backchannel frequency** sets how often. You can supply your own backchannel words to match the voice's register.
+
+Backchannels interact with interruption settings. A backchannel played while the agent is itself speaking can be mistaken for an interruption on a lively line. If you see read-backs being cut short, reduce the frequency or raise the patience in [speech-to-text](/build-an-agent/stt).
+
+## Reminder message
+
+If the caller goes quiet, the agent speaks a reminder after the **Reminder Message Frequency** interval, between 1 and 60 seconds. It prompts callers who have put the phone down or are distracted, and gives a natural exit if they have gone.
+
+## By API
+
+These settings live under `tts_config`. Voice ids are provider-specific strings; the voice catalog the dashboard shows is the source of truth, so copy an id from an existing agent or from the dashboard. ElevenLabs additionally needs `streaming_latency`. See [Update Agent](/api-reference/agents/update).

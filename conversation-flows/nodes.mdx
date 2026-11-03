@@ -1,0 +1,62 @@
+---
+title: "Nodes"
+description: "What each node type does and how to configure it."
+---
+
+Every node has a name, an instruction, and transitions out. Some have a configuration block for the action they perform. Each node can also be interruptible or not, play a typing sound while it works, and carry its own model, knowledge base and tools.
+
+## Instruction
+
+The instruction is either **prompt**, where you tell the model what to do in this node and it phrases the words, or **static**, where the text is spoken word for word. Use static for greetings, compliance lines, read-backs and farewells. Use prompt for anything that must adapt to the caller.
+
+Every prompt instruction on a node other than the start node should say that the call is already underway and the agent must not greet the caller again, and should ask one question per turn. Nodes without those lines eventually greet mid-call or stack questions.
+
+## Conversation
+
+The workhorse. It speaks, listens and routes on what the caller says. Its transitions are usually prompt conditions describing the caller's intent. A conversation node can carry a knowledge base, which is the right way to give an answering node access to documents without slowing every other node.
+
+## Logic Split
+
+Routes without speaking. Its transitions are equation conditions on variables, such as whether a value exists, equals something, or is above a threshold. Use it after an Extract Variable or Custom Function node to decide what happens next deterministically. A Logic Split can also carry prompt conditions, which makes it the way to route a caller's reply to a static question without giving the model a speaking turn.
+
+## Extract Variable
+
+Reads recent conversation and saves named variables. It speaks nothing and has a single way out. The description on each variable is the extraction prompt; put the precision rules there. See [Extract variable](/build-an-agent/tools/extract-dynamic-variable).
+
+## Custom Function
+
+Calls your API. Configure it as described in [Custom function](/build-an-agent/tools/custom-function). Its transitions should be equations on the saved response variables, with the else edge as the failure path.
+
+## Transfer Call
+
+Transfers to a directory destination. Its else edge is the failure path and must lead somewhere useful, because a declined or unanswered transfer returns the caller here. See [Transfer call](/build-an-agent/tools/transfer-call).
+
+## Send SMS
+
+Sends a text and moves on. Place it after the variables it references have been set.
+
+## Sub Agent
+
+A conversation node that can use tools inline, such as extracting a variable mid-conversation, rather than routing to a separate node. Useful for a "what would you like to change?" step that corrects one of several details. The instruction names the tools to use.
+
+## End Call
+
+Terminal. Usually a static instruction carrying the farewell. It is the only node that should say goodbye.
+
+## Global nodes
+
+Any node can be made global by giving it a **global node condition**. A global node can be reached from anywhere in the flow when the condition matches, without an edge. Use it for things a caller can say at any time, such as asking for a person or asking to stop.
+
+Write the condition defensively, as a full description of when to fire and when not to. The common failure is a global node firing in the middle of a task because the caller said something like "yes, go ahead, that's all". State that it must not fire while an action is pending or the caller is confirming something.
+
+A global node can also have **go back** conditions that return the caller to where they were. If you use one, the condition must require that the caller has actually replied, or the node can bounce straight back on entry.
+
+Do not make a Transfer Call node global. It would offer the transfer from every node and bypass any hours check in front of it.
+
+## Run in background
+
+An Extract Variable or Custom Function node can be marked to run in the background so the flow does not wait for it. Use it sparingly and never on the start node, which must be a conversation node that speaks.
+
+## Per-node model and knowledge base
+
+A node can override the agent's language model and attach its own knowledge bases. Collect-and-confirm nodes often use a faster model; the answering node uses the strongest one and the knowledge base.

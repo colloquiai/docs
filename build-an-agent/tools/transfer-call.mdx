@@ -1,0 +1,39 @@
+---
+title: "Transfer call"
+description: "Hand the caller to a person, with a directory of destinations, warm or cold."
+---
+
+Transfer Call connects the caller to a phone number. One tool can hold a whole directory of destinations, and the agent picks the right one from each entry's description.
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| Tool Name, Description | When the agent should transfer at all. |
+| Phone Directory | One or more destinations, each with a **Name**, **Phone Number**, **Description** and **Transfer Type**. The description is what the model uses to choose between entries, so make each one distinct. |
+| Transfer Type | **Warm** announces the caller to the person answering before connecting. **Cold** connects immediately. |
+| Transfer Announcement | What the agent says to the caller as it transfers, static or prompt-based. |
+| Transfer Declined | What the agent says if the transfer is not answered or is declined. Use a static message here. |
+| Hold Audio | What the caller hears while the transfer connects. |
+| Voicemail Detection | Detects when the destination goes to voicemail, and what to do: hang up the transfer leg, leave a message, or follow a prompt. |
+| Custom SIP Headers | Headers to send with the transfer. See [SIP headers](/deploy/sip-headers). |
+
+Phone numbers must be in international format, for example `+61400000000`.
+
+## Warm transfers
+
+In a warm transfer the agent calls the destination first and, when answered, speaks the announcement to the person before bridging the caller in. Use a prompt-based announcement that asks the agent to summarise the caller's request in one sentence, so the person picking up knows why they are getting the call.
+
+## When the transfer fails
+
+If nobody answers, the line is busy, or the person declines, the caller comes back to the agent. The Transfer Declined message is spoken, and the agent continues. With voicemail detection set to hang up, a destination that goes to voicemail counts as declined, so the caller is never left talking to someone's voicemail.
+
+Plan for this. In a single-prompt agent, say in the description or the global prompt what to offer when a transfer fails, usually to take a message. In a conversation flow, the transfer node's failure transition should lead to a node that takes a message or offers a callback. A transfer node with no failure path strands the caller.
+
+## Gating transfers by time
+
+If transfers should only happen during business hours, do not rely on the prompt to check the time. In a flow, route to the transfer node through a branch that checks the hour, so the closed path cannot reach it. See [Patterns](/conversation-flows/patterns).
+
+## Limits
+
+The tool description is capped at 1,024 characters. Keep directory descriptions short and discriminating rather than exhaustive.

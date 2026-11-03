@@ -1,0 +1,34 @@
+---
+title: "Numbers"
+description: "Buying numbers, bringing your own, and assigning agents."
+---
+
+An agent answers calls only through a number assigned to it. This page covers getting numbers and connecting them.
+
+## Buying a number
+
+In **Phone Numbers**, click **Add Number** and choose **Buy Number**. Pick from the available numbers, give it a nickname, and confirm. The number is on your workspace immediately and billed to your payment method.
+
+## Bringing your own number
+
+Choose **Add Number**, enter the number in international format and a nickname. Colloqui registers it on its SIP trunk so it can accept calls for that number.
+
+You then need to route the number to Colloqui at your carrier. This is a SIP forward from your carrier or PBX to Colloqui's trunk, and the details depend on your carrier. Contact support with the number and your carrier's name and they will provide the trunk address and any authentication to configure. Until the carrier side is done, calls to the number do not reach Colloqui.
+
+## Assigning agents
+
+Select the number and set the **Inbound Agent**. Calls to the number are answered by that agent's latest published version from then on. Set the **Outbound Agent** to control which agent is used for calls placed from the number.
+
+Assigning publishes the agent if it has unpublished changes. If another agent held the number and is left with none, it goes back to draft. See [Versioning](/versioning/overview).
+
+## Reassigning and removing
+
+Change the inbound agent at any time; the new agent answers the next call. Deleting a number releases it, and any agent left without numbers goes back to draft.
+
+## Several numbers, one agent
+
+One agent can answer many numbers. The dialled number is available inside the call as the `agent_number` variable, so a single agent can greet differently depending on which line was called.
+
+## By API
+
+See [Numbers](/api-reference/numbers/list). Updates require `nickname` even if unchanged.

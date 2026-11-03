@@ -1,0 +1,42 @@
+---
+title: "Custom function"
+description: "Call your own HTTP API from a call, and use the response."
+---
+
+Custom Function makes an HTTP request to a URL you choose, with parameters the model fills in from the conversation, and saves fields from the response as variables. It is how an agent books an appointment in your calendar, looks up an order, or hands a lead to your CRM.
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| Tool Name, Description | What the function does and when to call it. |
+| Method, API Endpoint | `GET`, `POST`, `PUT`, `PATCH` or `DELETE`, and the URL. The URL can include variables, for example `https://api.example.com/users/{{user_id}}`. |
+| Timeout (ms) | How long to wait for a response before treating the call as failed. |
+| Headers | Sent with every request. Put authentication here. |
+| Query Parameters | Appended to the URL. |
+| Parameters | The request body, defined as a schema. Each parameter has a name, a type, whether it is required, and a description that tells the model what to put in it. Parameters can be nested. |
+| Variables | Fields to save from the response, each as a variable name and a JSON path into the response, for example `booking_id` from `$.data.id`. |
+| Speak during execution | A line to say while the request is in flight, so the caller is not left in silence. |
+| Speak after execution | A line to say when the request completes. |
+
+Click the test control in the dialog to send a sample request from the dashboard and see the response before you save.
+
+## Parameters the model must not invent
+
+For values that must be fixed, such as a sender address, a source tag or an API version, set a constant rather than describing the value and hoping the model copies it. A constant is sent exactly, every time.
+
+## Timeouts
+
+Set the timeout to what the caller can bear in silence, not to what your API might need in the worst case. A 12 second timeout with a spoken "just checking that now" is a better experience than a 2 minute timeout that leaves the caller wondering if the line dropped. If the request fails, the agent should say so and offer an alternative.
+
+## Headers and secrets
+
+Headers are stored with the agent and visible to anyone who can view it in the dashboard or by API. Use a key issued for this agent alone, and rotate it if the agent is shared.
+
+## Using the response
+
+Saved variables can be spoken, used in an SMS, or tested by a flow branch. The most important use is deciding whether the call succeeded. Check for a field that only exists on success, such as a returned id, rather than comparing against a status text you have to guess.
+
+## In a conversation flow
+
+Custom Function is a node. Its outgoing transitions should be equation conditions on the saved variables, never a prompt asking the model to judge whether the request worked. Give it a fallback transition to a node that does not claim success. See [Edges](/conversation-flows/edges) and [Patterns](/conversation-flows/patterns).
