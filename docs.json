@@ -8,7 +8,9 @@
     "dark": "#1E40AF"
   },
   "favicon": "/favicon.svg",
-  "openapi": ["openapi.patched.yaml"],
+  "openapi": [
+    "openapi.patched.yaml"
+  ],
   "navigation": {
     "tabs": [
       {
@@ -134,6 +136,16 @@
             ]
           },
           {
+            "group": "Guardrails",
+            "pages": [
+              "api-reference/guardrails/list",
+              "api-reference/guardrails/create",
+              "api-reference/guardrails/show",
+              "api-reference/guardrails/update",
+              "api-reference/guardrails/delete"
+            ]
+          },
+          {
             "group": "Knowledge Bases",
             "pages": [
               "api-reference/knowledge-bases/list",
@@ -232,7 +244,7 @@
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://app.colloqui.ai"
+      "href": "https://dashboard.colloqui.ai"
     }
   },
   "footer": {
@@ -245,6 +257,6 @@
     "auth": {
       "method": "bearer"
     },
-    "baseUrl": "https://colloqui-web-develop-btoadh.laravel.cloud"
+    "baseUrl": "https://dashboard.colloqui.ai"
   }
 }

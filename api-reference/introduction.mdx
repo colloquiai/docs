@@ -8,16 +8,21 @@ The Colloqui API is organized around REST. All requests use JSON and require Bea
 ## Base URL
 
 ```
-https://colloqui-web-develop-btoadh.laravel.cloud
+https://dashboard.colloqui.ai
 ```
 
 ## Authentication
 
-Include your API key in the `Authorization` header:
+Include your API key in the `Authorization` header, and always send `Accept: application/json`:
 
 ```
 Authorization: Bearer YOUR_API_KEY
+Accept: application/json
 ```
+
+<Warning>
+Without the `Accept: application/json` header, a failed request returns an HTTP 302 redirect instead of the error. Send it on every request, including GET.
+</Warning>
 
 Generate an API key via [POST /api/v1/api-keys](/api-reference/api-keys/create) or from the dashboard under **Settings → API Keys**.
 
