@@ -38,12 +38,21 @@ Every source in a knowledge base must be `ingested` before the knowledge base ca
 
 <Steps>
   <Step title="Open Knowledge Base and click Add">
+    <Frame caption="The Add Knowledge Base dialog.">
+      <img src="/images/dashboard/kb-create.png" alt="The Add Knowledge Base dialog" />
+    </Frame>
     The **Add Knowledge Base** dialog asks for a **Knowledge Base Name**, then offers three ways to add **Documents**: **Add Web Pages** (crawl and sync your website), **Upload Files** and **Add Text** (add articles manually).
   </Step>
   <Step title="Add web pages">
+    <Frame caption="Add Web Pages crawls a site and lets you pick the pages to keep.">
+      <img src="/images/dashboard/kb-add-web-pages.png" alt="Add Web Pages crawls a site and lets you pick the pages to keep" />
+    </Frame>
     Enter the **URL Address**, for example `https://example.com`, and let the crawl run. Colloqui looks for `sitemap.xml`, `sitemap_index.xml` or `/sitemap` on the site and lists what it finds. Tick the pages to include; the dialog shows "N of M pages selected" and has **Select all**. Leave **Automatically re-crawl the selected pages on a schedule to keep their content up to date** ticked unless the content never changes.
   </Step>
   <Step title="Add files and text">
+    <Frame caption="Add Text takes a title and the text itself.">
+      <img src="/images/dashboard/kb-add-text.png" alt="Add Text takes a title and the text itself" />
+    </Frame>
     **Upload Files** accepts the five file types above. **Add Text** asks for a **File Name** and the **Text Content**.
   </Step>
   <Step title="Save and wait for ingestion">
@@ -58,6 +67,10 @@ On an existing knowledge base, **Edit Knowledge Base** renames it and adds sourc
 Web page sources with auto re-crawl on are checked every hour. A source is re-crawled when it is ingested, at least an hour old, and was last crawled more than 24 hours ago (by default). Re-crawling replaces the source's indexed content with the current page content. You can also re-crawl a source by hand at any time, except while it is already pending or processing. The source shows its last crawl time.
 
 ## Linking to an agent
+
+<Frame caption="The Knowledge Base panel on the agent page, with the retrieval settings under Advance Setting.">
+  <img src="/images/dashboard/sp-knowledge-base.png" alt="The Knowledge Base panel on the agent page, with the retrieval settings under Advance Setting" />
+</Frame>
 
 A knowledge base does nothing until an agent uses it. On the agent page, expand **Knowledge Base** and link one or more. Linking needs the developer role or above with the Knowledge base module.
 

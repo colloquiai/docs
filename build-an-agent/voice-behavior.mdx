@@ -7,6 +7,10 @@ These settings shape how the call feels rather than what is said: how quickly th
 
 ## Speech Settings
 
+<Frame caption="The Speech Settings panel.">
+  <img src="/images/dashboard/sp-speech-settings.png" alt="The Speech Settings panel" />
+</Frame>
+
 | Setting (UI label) | API field | Values | Default | Notes |
 |---|---|---|---|---|
 | **Background Sound** | `tts_config.ambient_sound` | **None** (`none`), **Office Ambience** (`office_ambience`), **Keyboard Typing** (`keyboard_typing`), **Keyboard Typing 2** (`keyboard_typing2`) | `none` | |
@@ -67,6 +71,10 @@ In a conversation flow, each Conversation and Sub Agent node has an **Allow inte
 The API accepts three fields under `tts_config` for the agent making small listening noises while the caller talks: `enable_backchannel` (boolean), `backchannel_frequency` (number) and `backchannel_words` (array of strings, each up to 255 characters). They are not shown in the dashboard and do not currently change what the caller hears. Leave them unset.
 
 ## Call Settings
+
+<Frame caption="The Call Settings panel.">
+  <img src="/images/dashboard/sp-call-settings.png" alt="The Call Settings panel" />
+</Frame>
 
 | Setting (UI label) | API field | Values | Default | Notes |
 |---|---|---|---|---|

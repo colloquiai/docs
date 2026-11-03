@@ -43,6 +43,9 @@ The dialog reminds you under an empty enum: "Add at least one choice for enum ty
 
 <Steps>
   <Step title="Add it">
+    <Frame caption="The Extract Dynamic Variable dialog.">
+      <img src="/images/dashboard/sp-tool-extract.png" alt="The Extract Dynamic Variable dialog" />
+    </Frame>
     Single-prompt agent: expand **Functions**, click **Add**, then **Extract Dynamic Variable**. Flow: drag an **Extract Variable** node onto the canvas, or use **Node Functions** on a Sub Agent node.
   </Step>
   <Step title="Describe the tool">
@@ -106,6 +109,10 @@ Reference a variable anywhere by its name in double curly braces:
 The type you chose matters when comparing. A **Number** or **Integer** compares numerically; a **String** compares as text, so "9" sorts after "10". An **Enum** is always one of its choices, which makes it the right type for anything a Logic Split branches on. A variable that was never set stays as its literal placeholder wherever it is used, so either make sure every path sets it or branch on `exists` first. See [Variables](/conversation-flows/variables) and [Edges](/conversation-flows/edges).
 
 ## In a conversation flow
+
+<Frame caption="An Extract Variable node in a flow.">
+  <img src="/images/dashboard/flow-extract-node.png" alt="An Extract Variable node in a flow" />
+</Frame>
 
 Extract Variable is a node. It speaks nothing, extracts on entry, and routes: equation conditions on its edges are evaluated first, then an optional prompt-conditioned edge is taken only if it clearly matches the result, and the else edge is the default. Most extract nodes need only the else edge; adding a prompt edge that leads to the same place costs a routing call that decides nothing. With **Run in background** on, the node routes by its else edge alone.
 

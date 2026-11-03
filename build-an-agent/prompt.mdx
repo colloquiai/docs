@@ -7,6 +7,10 @@ The prompt holds the instructions that apply to the whole call. For a single-pro
 
 ## What the model actually receives
 
+<Frame caption="The prompt editor with the Welcome Message controls beneath it.">
+  <img src="/images/dashboard/sp-welcome-message.png" alt="The prompt editor with the Welcome Message controls beneath it" />
+</Frame>
+
 Your prompt is not sent to the model on its own. At the start of each call the agent builds a system prompt in this order:
 
 1. **A built-in voice-output policy.** A short section that tells the model it is on a live phone call: reply in plain conversational sentences, never produce markdown, lists, tables, headings, JSON or code, do not read tool results back verbatim, and say numbers the way a person would. This sits in front of your prompt so your prompt and any node instruction remain the more specific layer.

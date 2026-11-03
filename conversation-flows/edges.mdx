@@ -7,6 +7,10 @@ An edge is a transition from one node to another with a condition that says when
 
 ## Three kinds of condition
 
+<Frame caption="The Edit Condition dialog for an equation transition.">
+  <img src="/images/dashboard/flow-edit-condition.png" alt="The Edit Condition dialog for an equation transition" />
+</Frame>
+
 | Kind | Judged by | Use for |
 |---|---|---|
 | Prompt | The model, from the caller's latest message or a node's result | Intent: "Caller asks about opening hours" |
@@ -66,6 +70,10 @@ Prompt rows are offered to the model as a set, so their order matters less, exce
 
 ## Unconditional transitions
 
+<Frame caption="Transition Mode switches a node between After User Responds and Skip User Response.">
+  <img src="/images/dashboard/flow-transition-mode.png" alt="Transition Mode switches a node between After User Responds and Skip User Response" />
+</Frame>
+
 Choose **+** → **Always/Skip** to open the **Transition Mode** dialog with two options. A node holds at most one, and it is the node's only way out: applying it deletes the node's prompt, equation and Else rows and their connections, and the dialog says how many before you confirm. Custom Function, Extract Variable and Logic Split nodes cannot take either; they act and then route on the outcome.
 
 ### After User Responds (always)
@@ -105,6 +113,10 @@ A global node's condition behaves like a prompt condition offered on every speak
 Silent nodes can chain without the caller hearing anything, and a mis-wired graph can cycle. The runtime counts hops since the caller was last heard or spoken to (8 by default) and also notices a node re-entered with nothing said since its last visit. When either trips, a silent destination is redirected to the last speaking node, a note is added to the conversation explaining that transitioning again on the same information will loop, and the model is made to speak instead of transition until the caller provides new information. If you see the agent suddenly ask a clarifying question after a pause, look for a cycle of silent nodes or a go-back condition that fires on entry.
 
 ## Writing conditions that transition reliably
+
+<Frame caption="Adding a transition on a Conversation node.">
+  <img src="/images/dashboard/flow-add-transition.png" alt="Adding a transition on a Conversation node" />
+</Frame>
 
 - Describe the caller's latest message, not the state of the call.
 - Name the negative cases. A "done" condition into End Call should read: the caller explicitly says no, "no thanks", "that's all" or "nothing else", or says goodbye; a bare "thanks", "ok" or "right" is NOT this condition. Otherwise the agent hangs up on a caller who was about to ask something.

@@ -7,6 +7,10 @@ Two settings on the agent decide how retrieval behaves across every knowledge ba
 
 ## How retrieval runs on each turn
 
+<Frame caption="Chunks to Retrieve and Similarity Threshold live under Advance Setting in the Knowledge Base panel.">
+  <img src="/images/dashboard/sp-knowledge-base.png" alt="Chunks to Retrieve and Similarity Threshold live under Advance Setting in the Knowledge Base panel" />
+</Frame>
+
 Retrieval happens after the caller's turn is committed and before the model is called, on every turn where at least one knowledge base is linked to the agent (or, in a flow, to the current node).
 
 1. **Decide whether to search at all.** The caller's message is classified:

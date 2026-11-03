@@ -27,6 +27,10 @@ Both providers are accurate on clear phone audio. If you have callers with stron
 
 ## Settings
 
+<Frame caption="Realtime Transcription Settings on the agent page.">
+  <img src="/images/dashboard/sp-transcription-settings.png" alt="Realtime Transcription Settings on the agent page" />
+</Frame>
+
 | Setting (UI label) | API field | Values | Default | Notes |
 |---|---|---|---|---|
 | **Provider** | `stt_config.provider` | `deepgram`, `assemblyai` | `deepgram` | |
@@ -52,6 +56,10 @@ What to add:
 **Automatic keyterm detection** has the agent pick up unusual spellings from the recent transcript during the call, such as a caller's name or a product they mention, so later mentions are transcribed consistently.
 
 ## Response Eagerness
+
+<Frame caption="Response Eagerness and Interruption Sensitivity under Speech Settings.">
+  <img src="/images/dashboard/sp-speech-settings.png" alt="Response Eagerness and Interruption Sensitivity under Speech Settings" />
+</Frame>
 
 **Response Eagerness** sets the minimum silence, after the caller stops, before the agent treats the turn as finished. It maps to a wait of about 1.1 seconds minus the slider value, with a floor of 0.1 seconds:
 

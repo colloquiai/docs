@@ -37,6 +37,10 @@ The runtime adds a line of its own in two cases. A static node with prompt trans
 
 ## Conversation
 
+<Frame caption="Node Settings for a Conversation node.">
+  <img src="/images/dashboard/flow-node-settings.png" alt="Node Settings for a Conversation node" />
+</Frame>
+
 The workhorse. It speaks, listens and routes on what the caller says. On entry it speaks its static line or generates a reply from its prompt; after each caller turn it either transitions deterministically or lets the model reply and choose a transition. Its transitions are usually prompt conditions describing the caller's intent.
 
 | Setting | Where | Values | Default |
@@ -82,6 +86,10 @@ When one of the node's own tools writes a variable, the node's equation transiti
 
 ## Custom Function
 
+<Frame caption="A Custom Function node selected.">
+  <img src="/images/dashboard/flow-custom-function-node.png" alt="A Custom Function node selected" />
+</Frame>
+
 Calls your API, silently, as soon as it is entered. The card shows a **Configure function** button that opens the same dialog as the [Custom function](/build-an-agent/tools/custom-function) tool: method, endpoint, headers, query, parameters, response variables, timeout and the speak-during and speak-after options.
 
 What happens on entry:
@@ -104,6 +112,10 @@ Branch on the saved response variables with equations: `{{booking_id}} exists` i
 
 ## Extract Variable
 
+<Frame caption="An Extract Variable node selected.">
+  <img src="/images/dashboard/flow-extract-node.png" alt="An Extract Variable node selected" />
+</Frame>
+
 Reads recent conversation and saves named variables. It speaks nothing. The card shows **Configure Variables**, which opens the same dialog as the [Extract variable](/build-an-agent/tools/extract-dynamic-variable) tool with the tool name and description hidden: for each variable a **Name**, **Type** (string, number, integer, boolean, enum) and **Description**, plus **Choices** for an enum.
 
 What happens on entry: one silent model call is given the extraction instruction, the recent conversation, the results carried from earlier nodes, the node's own variables as already stored ("reuse these values unless the conversation changed them"), and the current date when the agent has a timezone. The values come back typed, are stored, and the node routes on **Else** (or on a prompt transition if you add one, which costs a second silent call that rarely decides anything).
@@ -122,6 +134,10 @@ An enum value that is not one of the choices is dropped rather than stored, and 
 **Run in background** is offered on this node type only. Turning it on keeps the Else row and deletes any prompt or equation transitions, after a confirmation dialog that counts them, because a background node routes on Else alone. Treat it as experimental and test it on a throwaway agent before relying on it; never use it on the start node, which must be a speaking node.
 
 ## Send SMS
+
+<Frame caption="A Send SMS node selected.">
+  <img src="/images/dashboard/flow-sms-node.png" alt="A Send SMS node selected" />
+</Frame>
 
 Sends a text and moves on. The card shows **Configure message**, the same dialog as the [Send SMS](/build-an-agent/tools/send-sms) tool: content type, content, and whether to send to the caller's number or a different mobile.
 
@@ -144,6 +160,10 @@ A Logic Split cannot take an always or skip transition.
 
 ## Transfer Call
 
+<Frame caption="A Transfer Call node selected.">
+  <img src="/images/dashboard/flow-transfer-node.png" alt="A Transfer Call node selected" />
+</Frame>
+
 Transfers to a destination in its directory. The card shows **Configure transfer**, the same dialog as the [Transfer call](/build-an-agent/tools/transfer-call) tool: the phone directory, announcement, declined message, hold audio, SIP headers and voicemail handling.
 
 On entry the transfer starts immediately. A successful transfer ends the flow. A declined, unanswered or failed transfer returns the caller to the flow through the node's single transition, labelled **Transfer failed**, with a note telling the next node whether the caller has already been told. If voicemail detection is set to hang up, or to hang up after a message, the call ends at voicemail and the transition is not taken; the card shows a warning icon when that is the case.
@@ -155,6 +175,10 @@ The Transfer failed transition must lead somewhere useful, usually a node that o
 Terminal. The card has only the instruction. With **Static Sentence** the farewell is spoken exactly; with **Prompt** the model writes a closing from the text. The node then hangs up. It has no transitions and no source handle. It is the only node that should say goodbye; put that rule in the global prompt as well.
 
 ## Global nodes
+
+<Frame caption="A global node: the Global Node badge on the card and the Go Back Conditions section.">
+  <img src="/images/dashboard/flow-global-node.png" alt="A global node: the Global Node badge on the card and the Go Back Conditions section" />
+</Frame>
 
 Any node can be made global from the **Node Settings** tab by switching on **Global Node** ("Allow other nodes jump to this node without edges") and describing the condition. The condition is required; an empty one fails on save.
 

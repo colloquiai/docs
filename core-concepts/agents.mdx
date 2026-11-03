@@ -57,6 +57,10 @@ The agent object has the same shape in the dashboard and the API. Each block bel
 
 ## The agent page
 
+<Frame caption="A single-prompt agent: the prompt on the left, settings panels on the right.">
+  <img src="/images/dashboard/sp-editor.png" alt="A single-prompt agent: the prompt on the left, settings panels on the right" />
+</Frame>
+
 The header shows the agent's name with a pencil to **Rename Agent**, then **Choose a Bundle** (or **Change Bundle** once one is active), **Versions**, **Publish** and **Save**. An orange dot next to the name means **Unsaved changes**. If the workspace has no payment method, a banner says changes cannot be saved until one is configured.
 
 The settings panel is a set of sections: **Agent Settings** (the timezone; for a single-prompt agent the prompt itself is in the main pane), **Functions** (tools), **Knowledge Base**, **Guardrails**, **Speech Settings**, **Realtime Transcription Settings** and **Call Settings**. On a conversation-flow agent the panel has two tabs, **Global Settings** for the agent-wide values and **Node Settings** for the node selected on the canvas.
@@ -74,6 +78,10 @@ Under **Agent Settings**, **Timezone** is a searchable list of IANA zones (**Sel
 Clear the field if the agent should not be aware of time; placeholders then resolve in UTC. By API, `timezone` is accepted on [Update Agent](/api-reference/agents/update) but not on create, so set it with an update after creation and read the agent back to confirm.
 
 ## Draft, published, versions
+
+<Frame caption="The Versions dialog on an agent that has never been published.">
+  <img src="/images/dashboard/sp-versions.png" alt="The Versions dialog on an agent that has never been published" />
+</Frame>
 
 Every agent has one draft, which is what you edit, and zero or more published versions, which are what answers calls.
 

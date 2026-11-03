@@ -69,6 +69,9 @@ Each **Variables** entry is a variable name and a path into the JSON response. P
     Give it a verb name such as `book_appointment`. In **Description**, say what it does and when to call it, and what must be collected first.
   </Step>
   <Step title="Set the request">
+    <Frame caption="The Edit Custom Function dialog.">
+      <img src="/images/dashboard/sp-tool-custom-function.png" alt="The Edit Custom Function dialog" />
+    </Frame>
     Choose the **Method** and enter the **API Endpoint**. Set **Timeout (ms)** to what a caller can bear in silence, around 8,000 to 12,000. Add authentication under **Headers**.
   </Step>
   <Step title="Define the parameters">
@@ -81,6 +84,9 @@ Each **Variables** entry is a variable name and a path into the JSON response. P
     Turn on **Speak during execution** with a short line such as "Just checking that now." so the caller is not left in silence.
   </Step>
   <Step title="Test it">
+    <Frame caption="Test Custom Function sends the request with the values you supply.">
+      <img src="/images/dashboard/sp-test-custom-function.png" alt="Test Custom Function sends the request with the values you supply" />
+    </Frame>
     Click **Test** to open **Test Custom Function**. Type a JSON body under **Request** and click **Run Test**. The **Response** panel shows the HTTP status and body. The test sends the method, URL, headers and query parameters as typed; variables are not substituted, so use real values.
   </Step>
   <Step title="Save">

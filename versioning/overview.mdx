@@ -42,6 +42,9 @@ What a version contains is the complete agent configuration at the moment of pub
     The agent needs at least one number assigned as its **Inbound Agent** or **Outbound Agent** on the **Numbers** page. Without one, the Publish Agent dialog shows "This agent has no numbers assigned. Please assign at least one number before publishing." and the **Publish** button in the dialog stays disabled.
   </Step>
   <Step title="Click Publish">
+    <Frame caption="The Publish Agent dialog with its optional description.">
+      <img src="/images/dashboard/sp-publish.png" alt="The Publish Agent dialog with its optional description" />
+    </Frame>
     If you have unsaved edits, Colloqui saves them first and only opens the dialog if the save succeeds. A save that fails validation shows the problems next to **Save** and the dialog does not open. Fix them and click **Publish** again.
   </Step>
   <Step title="Describe the change">
@@ -69,6 +72,10 @@ A small orange dot next to the agent name in the breadcrumb means you have edits
 Calls are unaffected while an agent has unpublished changes. If you decide against the edits, open **Versions** and restore the current version to put the draft back to what is live.
 
 ## Version history and restore
+
+<Frame caption="The Versions dialog.">
+  <img src="/images/dashboard/sp-versions.png" alt="The Versions dialog" />
+</Frame>
 
 Click **Versions** to open the **Agent Versions** dialog ("Browse published versions of this agent and restore a previous one."). Each row shows **Version N**, the date and time it was published, and its description. The version that is live carries a **Current** badge; every other version has a **Restore** button.
 

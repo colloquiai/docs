@@ -72,6 +72,9 @@ Each **Phone Directory** entry has:
 
 <Steps>
   <Step title="Add the tool or node">
+    <Frame caption="The Edit Transfer Call dialog.">
+      <img src="/images/dashboard/sp-tool-transfer.png" alt="The Edit Transfer Call dialog" />
+    </Frame>
     Single-prompt agent: expand **Functions**, click **Add**, then **Transfer Call**. Conversation flow: drag a **Transfer Call** node onto the canvas and click its transfer definition to open the same dialog, or add it under **Node Functions** on a Sub Agent node.
   </Step>
   <Step title="Build the directory">
@@ -120,6 +123,10 @@ they can call you back?
 ```
 
 ## In a conversation flow
+
+<Frame caption="A Transfer Call node and its settings in a flow.">
+  <img src="/images/dashboard/flow-transfer-node.png" alt="A Transfer Call node and its settings in a flow" />
+</Frame>
 
 The Transfer Call node forces the transfer as soon as the flow enters it, using the node's instruction as the description. Its only edge is the else edge, labelled **Transfer failed**. When a warm transfer is declined, unanswered or reaches voicemail, the flow takes that edge and the next node is told whether the caller has already heard the declined line, so it does not repeat it. A successful transfer never transitions, because the call has left the agent. If the node has no **Transfer failed** edge, the flow returns to the node it came from.
 

@@ -20,6 +20,10 @@ The cost of a flow is latency at each hop. Every node builds its own prompt, and
 
 ## The components
 
+<Frame caption="A booking flow: nodes on the canvas, Global Settings on the right.">
+  <img src="/images/dashboard/flow-editor.png" alt="A booking flow: nodes on the canvas, Global Settings on the right" />
+</Frame>
+
 | Component | What it is | Where it is edited |
 |---|---|---|
 | Global prompt | The agent's identity, tone and hard rules. It sits above every node's instruction. | **Global Settings** tab, **Prompt** |
@@ -66,6 +70,10 @@ Silent nodes can hand off to each other with nobody speaking. The runtime bounds
 Two variables track position: `{{current_node}}` and `{{previous_node}}` hold node names and can be used in instructions and equations.
 
 ## The canvas
+
+<Frame caption="The Add node menu.">
+  <img src="/images/dashboard/flow-add-node.png" alt="The Add node menu" />
+</Frame>
 
 Open a conversation-flow agent and select the **Flow** tab. The settings pane beside it has two tabs: **Global Settings** for the agent-wide configuration and **Node Settings** for the selected node.
 

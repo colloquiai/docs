@@ -18,6 +18,10 @@ Tools let the agent act: hang up, transfer, press keypad digits, send a text, sa
 
 ## Where tools live
 
+<Frame caption="The Functions panel lists every tool on a single-prompt agent.">
+  <img src="/images/dashboard/sp-editor.png" alt="The Functions panel lists every tool on a single-prompt agent" />
+</Frame>
+
 **Single-prompt agent.** Open the agent and expand **Functions** in the settings panel. **Add** offers **Send SMS**, **End Call**, **Transfer Call**, **Extract Dynamic Variable** and **Custom Function**. Each opens a dialog with a **Tool Name**, a **Description** and the tool's own fields. The model sees every tool on every turn and decides when to call one. Press IVR has no dialog; add it by API (see [Press IVR](/build-an-agent/tools/press-ivr)). A new single-prompt agent starts with an End Call tool already attached.
 
 **Conversation flow, dedicated nodes.** Transfer Call, Send SMS, Extract Variable, Custom Function and End Call each exist as a node type. A node runs its action as soon as the flow reaches it; the model does not decide whether to run it. The node's settings are the same dialog as the tool, minus the tool name and description, because the node carries its own name.

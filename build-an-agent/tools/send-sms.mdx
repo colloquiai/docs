@@ -36,6 +36,9 @@ The helper text under **Send To Number** reads: "Must be a mobile number in E.16
 
 <Steps>
   <Step title="Add it">
+    <Frame caption="The Edit Send SMS dialog.">
+      <img src="/images/dashboard/sp-tool-sms.png" alt="The Edit Send SMS dialog" />
+    </Frame>
     Single-prompt agent: expand **Functions**, click **Add**, then **Send SMS**. Flow: drag a **Send SMS** node onto the canvas, or use **Node Functions** on a Sub Agent node.
   </Step>
   <Step title="Describe when to send">
@@ -85,6 +88,10 @@ appointment time. Do not send before they confirm.
 Each message sent is metered on the agent's bundle in addition to call minutes. Long messages that split into several SMS segments cost more than one short one, so keep texts brief. See [Billing](/workspace/billing).
 
 ## In a conversation flow
+
+<Frame caption="A Send SMS node in a flow.">
+  <img src="/images/dashboard/flow-sms-node.png" alt="A Send SMS node in a flow" />
+</Frame>
 
 Send SMS is a node. It takes the same settings minus the tool name and description, sends on entry, and then routes: equation conditions on its edges are evaluated first, then a silent routing call picks among prompt-conditioned edges using the send result, and the else edge is the fallback. Give the else edge a destination that does not claim the text was sent. The next node is told the result, so a conversation node after it can say "I've just texted you that" or "I wasn't able to send that" truthfully.
 
