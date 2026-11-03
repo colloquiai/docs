@@ -3,60 +3,225 @@ title: "Patterns"
 description: "Flow shapes that hold up in production, and the failures they prevent."
 ---
 
-These patterns come from live agents. Each one exists because the obvious alternative failed on real calls.
+These patterns come from live agents. Each one exists because the obvious alternative failed on real calls, usually more than once, and a prompt-only fix was tried first and reverted. Each entry gives the problem, the shape, a flow fragment and the anti-pattern. The second half of the page is a debugging guide for the symptoms you are most likely to see.
 
-## Collect, extract, act, confirm
+## Flow shapes
 
-The core transaction shape:
+### Collect, extract, act, confirm
+
+**Problem.** An agent tells a caller their booking is made, or their message has been passed on, when nothing was sent. It happens whenever the collection node has a path to End Call that skips the action.
+
+**Shape.** Every exit from the collection node goes through the extraction and the function. Success and failure are decided by equations on the response, and the failure path leads to a node that does not claim success.
 
 ```text
-Collect (conversation)
-  → Extract (extract variable)
-  → Act (custom function)
-      ├─ id exists → Confirmed (static)
-      └─ else      → Failed (conversation, does not claim success)
+Collect Details (conversation)
+  ├─ "caller has given the details"  → Extract Details
+  └─ "caller says they are finished"  → Extract Details   (not End Call)
+Extract Details (extract variable)
+  → Else → Create Callback (custom function)
+      ├─ {{callback_id}} exists → Confirmed (static) → always → End Call
+      └─ Else                   → Not Saved (conversation: apologise, offer the number, never say it was saved)
 ```
 
-The collection node must not have a path to End Call that skips the function. If it does, the agent will eventually tell a caller their booking is made when nothing was sent.
+**Anti-pattern.** A "caller is finished" transition from Collect Details straight to End Call, or a prompt condition "the API call succeeded" judged by the model.
 
-## Static question, always edge, logic split
+### Static question, always transition, Logic Split
 
-For any closed question, do not put prompt conditions on the node that asks it. Ask with a static instruction, exit on an always edge, and route on a Logic Split with prompt conditions plus an else:
+**Problem.** On a static node with prompt transitions, a plain "yes", "mm-hmm" or "no, it's 0412…" often produces a spoken reply instead of a transition, and the model then runs the whole task inside the wrong node.
+
+**Shape.** Ask the closed question with a **Static Sentence**, exit on **After User Responds**, and route on a Logic Split with prompt rows plus an Else to the safest landing.
 
 ```text
-"Is that correct?" (static)
-  → always edge
+Confirm (static): "Just to confirm, {{caller_name}} on {{callback_number}}. Is that correct?"
+  → After User Responds
   → Route After Confirm (logic split)
-      ├─ caller confirms           → next step
-      ├─ caller gives a correction → re-extract
-      ├─ caller says something is wrong, no value → ask what to change
-      └─ else                      → read back again
+      1. "the assistant's last message does not end with 'Is that correct?'"  → Confirm
+      2. "caller gives a corrected name or number"                              → Extract Details
+      3. "caller says something is wrong but gives no new value"                → Fix Details
+      4. "caller confirms"                                                      → Create Callback
+      Else                                                                      → Confirm
 ```
 
-On a static node with prompt conditions, a plain "yes" often produces a spoken reply instead of a transition, and the model then runs the whole task from the wrong node. The always edge fires deterministically.
+The first row covers a line that was cut short or answered over a filler phrase. The correction rows come before the confirmation row so "no, it's…" is caught as a correction. Open questions on the start node ("How can I help?") are the exception: the greeting legitimately routes on intent.
 
-Put the correction edges before the confirm edge. A reply like "no, it's 0412" must be caught as a correction, not as agreement.
+**Anti-pattern.** Prompt transitions on the static node itself; a prompt-instruction node told to "confirm once, then move on".
 
-## Confirmation is a read-back, not a prompt
+### Confirmation is a read-back, not a prompt
 
-"Confirm once, then move on" in a prompt instruction does not hold. The model keeps seeking certainty. A static read-back line plus the routing above has no loop to fall into.
+**Problem.** "Confirm once only" in a prompt instruction does not hold. The model keeps seeking certainty, re-reads on every correction, and one objection can produce the same summary many times over.
 
-## Every ask has a cap
+**Shape.** The pattern above: a static read-back line, an always transition, a Logic Split with a dispute row and a correction-with-value row ahead of the confirm row. A caller who disputes twice with nothing new is routed to a static "I'll pass on what I have" line with **Skip User Response** into the action.
 
-A caller who never answers a question can trap a conversation node forever. Write the cap into the instruction: ask at most twice, then say "no problem" and move on. Give the forward edge a condition that accepts "given, declined, or asked twice without an answer", and give the extraction a fallback value so downstream static text has something to say. Then branch on that fallback so a static line never speaks "not given" aloud.
+**Anti-pattern.** A conversation node whose instruction says "read the details back and confirm", with prompt transitions for yes and no.
 
-## Hub and spoke
+### Every ask has a cap and an exit
 
-One router node that every topic returns to, so a caller can change subject without starting over. Route "something different" to the router, not to the greeting.
+**Problem.** A caller who never answers a question traps a collection node forever: the same three lines cycle for minutes.
 
-## Time-gated transfer
+**Shape.** The cap is in the instruction, the exit is in the transition, and the fallback is in the extraction.
 
-Decide open or closed with a Logic Split on the hour, and make the closed path structurally unable to reach the Transfer Call node. A prompt rule can be argued with; a missing edge cannot. Keep the hours in the equation, in the "we're closed" line and in the knowledge base identical, and change all three together.
+```text
+Instruction: ASK FOR EACH DETAIL AT MOST TWICE. If a reply does not give what
+you asked for, ask once more in different words. If the second reply still does
+not give it, do NOT ask a third time: hand off immediately by calling the
+transition. Do NOT reply with words only; the next step speaks.
 
-## Only End Call says goodbye
+Transition: "Caller has given the detail, declined to give it, or has been asked
+twice without giving it"
 
-Put the farewell in the End Call node's static text, and put a rule in the global prompt that no other step says goodbye. Otherwise callers hear two farewells. Also ban the exchange of pleasantries: when the caller says "thanks" after the task is done, the agent should move to End Call, not reply with another pleasantry.
+Extraction description: "… If not given, use an empty string."
+```
 
-## What a prompt cannot fix
+Then branch on `{{caller_name}} exists` before any static line that would speak the name, and give the other path a line without it.
 
-Some behaviour comes from the runtime, not the model: a filler phrase such as "one moment" when the agent is thinking, a transition that fires on an interim transcript, or a reply cut short by a backchannel. If a prompt change does not move a symptom after two attempts, look at the structure instead. Fix the structure before the prompt.
+**Anti-pattern.** "Make sure you get the caller's name before moving on", and a static line that can say "your name is not given".
+
+### Hub and spoke
+
+**Problem.** A caller who changes subject is sent back to the greeting, or gets stuck in the topic they first mentioned.
+
+**Shape.** One router node that every topic returns to. Each topic node's "something different" transition points at the router, not the greeting, and the router's instruction says the call is already underway.
+
+**Anti-pattern.** Topic nodes that transition to the start node, which re-greets.
+
+### Time-gated transfer
+
+**Problem.** An agent transfers after hours because the caller insisted, or refuses during hours because it misjudged the time.
+
+**Shape.** A Logic Split decides open or closed with equations on `{{current_hour}}`, and the closed path is structurally unable to reach the Transfer Call node. The only edge into the transfer comes from the open branch. The transfer node is not global.
+
+```text
+Caller asks for a person
+  → Check Hours (logic split)
+      ├─ {{current_hour}} >= 9 && {{current_hour}} < 17 → Transfer to Reception
+      │       Transfer failed → Take a Message
+      └─ Else → Closed (static: "we're closed until 9 tomorrow, can I take a message?")
+                  → After User Responds → Route After Closed
+```
+
+Keep the hours in the equation, in the closed line and in the knowledge base identical, and change all three together. A prompt rule can be argued with; a missing edge cannot.
+
+**Anti-pattern.** "Only transfer between 9 and 5" in the global prompt; a global Transfer Call node.
+
+### Only End Call says goodbye
+
+**Problem.** Callers hear two farewells, or the agent trades pleasantries for half a minute because the caller said "thanks" and the node had nowhere to go.
+
+**Shape.** The farewell is the End Call node's static text. The global prompt says only the End Call step says goodbye and that a closing pleasantry is not a new question. Every node where the task can end has a transition to End Call whose condition excludes bare acknowledgements.
+
+```text
+Global prompt:
+- ONLY THE END CALL STEP SAYS GOODBYE. No other step may say "bye", "thanks
+  for calling", "you're welcome" or "have a great day". When the caller is
+  finished, hand off in silence.
+- A CLOSING PLEASANTRY IS NOT A NEW QUESTION. If the caller says "thanks" or
+  "ok" after the task is done, do not reply with another pleasantry; move to
+  the End Call step.
+
+Transition to End Call: "Caller explicitly says no, 'no thanks', 'that's all'
+or 'nothing else', or says goodbye. A bare 'thanks', 'ok' or 'right' is NOT
+this condition."
+```
+
+**Anti-pattern.** A farewell in the last conversation node's instruction; a "done" condition that reads "caller says thanks or goodbye".
+
+### Act and exit
+
+**Problem.** A node that must say one line and move on, or do one thing silently, pads with "I can certainly help with that… one moment" and then waits.
+
+**Shape.** A static line with **Skip User Response** for a disclaimer or acknowledgement; a silent node (Extract Variable, Custom Function, Logic Split) routed by edges where nothing needs saying. The runtime speaks static text itself and never pads.
+
+**Anti-pattern.** A conversation node told to "say nothing and transition".
+
+### Extract soon, restate once
+
+**Problem.** A name given in the first sentence is missing by the time the read-back happens, because the extractor only sees recent conversation and a long detour pushed it out of view.
+
+**Shape.** Extract each detail soon after it is spoken: name, then Extract Name, then number and message, then Extract Message. Where a value must survive a detour, have the conversation node say it once ("Thanks Jane. And what suburb are you in?") so it is back in the window.
+
+**Anti-pattern.** One extraction node at the end of a long collection.
+
+### Write the wrong behaviour into the instruction
+
+**Problem.** An instruction that only describes the desired behaviour loses to whatever the model is being pulled toward: the caller's framing, conversational habit, or what it just said. "Ask for the caller's name" produces a second greeting; "confirm the email" produces three confirmations.
+
+**Shape.** Every conversation node's prompt instruction carries: no greeting mid-call; one question per turn; an explicit prohibition on the most plausible wrong behaviour for this node; a stop condition for anything that could repeat. Ban the phrasings you have observed, not just the concept, and write multi-step tasks as numbered steps with "Then STOP and wait" after each.
+
+```text
+STEP 1: Ask "What is the best email address?" Then STOP and wait.
+STEP 2: Spell it back ONCE and ask if it is correct. Then STOP and wait.
+        Do NOT ask for the phone number in this turn.
+STEP 3: If the caller says yes, yep, correct or anything affirmative, it is
+        CONFIRMED. Do NOT repeat it or say you want to be sure.
+STEP 4: Ask "And a contact number?" Then STOP and wait.
+```
+
+A caller who opened with "I want to leave a message" sets a frame that later nodes inherit; a structured node should say what it is not: "This is a structured enquiry, not a free-text message. Do NOT ask what the message is."
+
+**Anti-pattern.** An instruction that is a description of the happy path.
+
+### Global node conditions are full prompts
+
+**Problem.** A global "caller wants to end the call" node fires when the caller says "yes, cancel it, that's all I needed", abandoning the transaction.
+
+**Shape.** The condition states when to fire, when not to fire, and gives examples of each, and says it must not fire while an action is pending or the caller is confirming. Prefer explicit transitions out of the global node over go-back conditions; if you use a go-back condition, it must require that the caller has actually replied.
+
+**Anti-pattern.** A one-phrase condition; a go-back condition "caller wants to continue".
+
+## Debugging guide
+
+Fix the structure before the prompt. If a prompt change does not move a symptom after two attempts, the cause is usually a transition, a missing edge, or the runtime, and no wording will fix it.
+
+### The agent ignores a node instruction
+
+1. Check that the instruction is in the node you think is active. After a transition the next node's instruction applies from its first reply; if the wrong node is speaking, the transition did not happen (see below).
+2. Look for a competing rule in the global prompt. Two rules in tension resolve toward the global prompt, which sits at the top of the context. A node told "say nothing and do not say goodbye" lost to a global rule that authorised ending the call. Put the qualification in the global prompt next to the rule it must qualify, not at the end.
+3. Check whether the instruction mandates the behaviour you are seeing. "You still need a confirmed summary" is an order to keep asking.
+4. Name and forbid the exact phrasing observed. The model reroutes around a banned concept by rewording.
+5. If the utterance is "One moment", "Just a moment" or "Hello, still with me?", it is the runtime's filler or silence prompt, not the model. Shorten the chain between caller turns, or make the landing node static.
+
+### Transitions misfire
+
+**A prompt transition did not fire.** The node also has an always or skip transition (prompt rows never run then); the model answered in speech instead, which is the usual outcome on a static node with a plain "yes"; the caller kept talking after the decision, which discards it; or loop protection refused the hop. Move the routing to a Logic Split after an always transition.
+
+**The wrong transition fired.** On a Logic Split the classifier picks the best match and only takes Else when nothing fits, so an objection with no new value matched "re-read" and the summary repeated. Add the missing case as its own row, and order the rows specific-first.
+
+**The transition fired too early.** An always transition fires on the committed turn even if the node's line was cut short, and a caller's "okay" to a filler phrase is a committed turn. Make the node that follows a silent chain static so it speaks quickly, and give the router a first row that re-asks when the last assistant message does not end with the question.
+
+**A "done" transition ended the call on "thanks".** Rewrite it to require an explicit no or a goodbye and to exclude bare acknowledgements.
+
+**An equation never matches.** The variable was not set on that path, the literal has a colon or other non-digit, the variable is string-typed and compared numerically, or the operator is contains. Have a test build read the value back in a static line.
+
+### The caller gives several details at once
+
+A caller who opens with name, number and reason in one breath satisfies three nodes' questions at once. Two things keep the flow honest. Give the collection node a forward transition that accepts "the caller has given the details" without requiring that each was asked for, and write its instruction to skip questions already answered: "If the caller has already given a detail, do NOT ask for it again." Then extract immediately, while the opening sentence is still in the extractor's window, rather than after the remaining questions.
+
+### Loops
+
+**The same question repeats.** The ask has no cap, or the forward transition requires an answer the caller is not giving. Add the cap, the "declined or asked twice" exit and the extraction fallback.
+
+**The read-back repeats.** The router lacks a dispute row and a correction-with-value row ahead of the confirm row, or the confirmation lives in a prompt node.
+
+**Silent hopping, then an odd clarifying question.** Two silent nodes route to each other, or a go-back condition fires on entry. Loop protection has redirected the call to the last speaking node. Find the cycle and give it a speaking node or a terminating equation.
+
+**Nothing happens after the agent says "no problem".** The cap wording told the model to "move on" but the move is a hand-off, so it replied with words and called no transition. Say "hand off immediately by calling the transition; do not reply with words only".
+
+### Dead air
+
+Each silent node that needs the model adds a round trip. An Extract Variable followed by a Logic Split with prompt rows and then a prompt-instruction node is three model calls before the caller hears anything, and the runtime fills the gap with a short filler phrase that callers answer. Keep one silent model call per hop at most, make the landing node static, replace a prompt-row Logic Split with equation rows on an enum variable, and give long extractions a typing sound.
+
+### The agent claims success it did not have
+
+The collection node could reach a terminal without passing through the function, the function's Else path leads to a node whose instruction assumes success, or a prompt condition judged "the request succeeded". Route every exit through the function, branch on `exists`, and make the failure node say the action could not be completed. Verify against your backend, not the agent's spoken confirmation.
+
+### Wrong values extracted
+
+An email spelled back correctly was saved with letters missing; a phone number was reformatted; "next Friday" became the wrong date. Fix the variable description, not the node instruction: "letter for letter as spelled back and confirmed", "digits only, exactly as said", and set the agent's timezone so the extractor is given the calendar.
+
+## Related
+
+- [Overview](/conversation-flows/overview)
+- [Nodes](/conversation-flows/nodes)
+- [Edges and conditions](/conversation-flows/edges)
+- [Variables](/conversation-flows/variables)
+- [Prompt engineering](/core-concepts/prompt-engineering)

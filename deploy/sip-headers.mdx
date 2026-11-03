@@ -3,22 +3,112 @@ title: "SIP headers"
 description: "Pass context to your phone system on transfers."
 ---
 
-When the agent transfers a call, it can add custom SIP headers to the transfer. A PBX or contact centre on the receiving end can read them to route the call, pop a screen, or tag the interaction.
+When the agent transfers a call, the transfer can carry custom SIP headers: name and value pairs that a PBX or contact centre on the receiving end can read to route the call, pop a screen, or tag the interaction. You configure them on the Transfer Call tool in a single-prompt agent or on a Transfer Call node in a conversation flow, under **Custom SIP Headers**. A common use is a fixed `X-Source: colloqui` header so the receiving dial plan can send agent-originated calls to a dedicated queue.
+
+## How it works
+
+A transfer, warm or cold, places a new outbound call from Colloqui's trunk to the destination in the phone directory, then bridges the caller to it. Custom SIP headers belong to that outbound leg: they are sent on the INVITE to the destination, not back to the original caller's carrier. Whether the destination ever sees them depends on every hop in between honouring unknown headers, which is why the names conventionally start with `X-`.
+
+The headers are stored as part of the agent configuration, so they are included in every published version and travel with a duplicated agent. The transfer runtime reads them from the tool or node configuration when the transfer tool is invoked.
+
+<Warning>
+Sending the configured headers on the transfer leg is not yet active. Headers you configure are saved with the agent and will be sent once it is, but today a transfer completes normally with no custom headers on the INVITE. Configure them so your agents are ready, and do not build routing that depends on them until the [changelog](/changelog/index) says they ship.
+</Warning>
+
+## Settings
+
+| Setting (UI label) | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Custom SIP Headers** | `custom_sip_headers` | object of header name to string value, or `null` | none | On `transfer_call` tools (`llm_config.tools[]`) and Transfer Call nodes (`nodes[].config`). |
+| **Header name** | object key | any string | none | Use `X-` names. Keep to letters, digits and hyphens. |
+| **Value** | object value | string | none | Sent as entered. No length limit is enforced beyond what SIP allows in practice. |
+
+Values are sent literally. Variables such as `{{user_number}}` are not substituted into header values today; if you need the caller's number at the destination, the receiving system can read it from the transferred call's own caller id, and the transfer summary spoken on a warm transfer carries the context the agent gathered.
 
 ## Configuring headers
 
-In the transfer tool or node, open **Custom SIP Headers** and add header names and values. Header names conventionally start with `X-`, for example `X-Caller-Name`. Values can include variables, so the caller's details collected earlier in the call travel with the transfer:
+<Steps>
+  <Step title="Open the transfer configuration">
+    In a single-prompt agent, open the Transfer Call tool from the tools list. In a conversation flow, select the Transfer Call node and open its configuration. Both use the same dialog.
+  </Step>
+  <Step title="Add a header">
+    Scroll to **Custom SIP Headers** and click **Add**. A row appears with a **Header name** field and a **Value** field. The section reads "No SIP headers configured." until you add one.
+  </Step>
+  <Step title="Fill in name and value">
+    Enter the name, for example `X-Source`, and the value, for example `colloqui`. Click **Add** again for each additional header; the bin icon removes a row.
+  </Step>
+  <Step title="Save and publish">
+    Save the tool, then **Save** and **Publish** the agent. Headers are part of the agent configuration, so they take effect on the next published version.
+  </Step>
+</Steps>
 
-| Header | Value |
-|---|---|
-| `X-Caller-Name` | `{{caller_name}}` |
-| `X-Caller-Number` | `{{user_number}}` |
-| `X-Reason` | `{{enquiry_type}}` |
+## Example
+
+A transfer tool that tags calls for a contact centre's dial plan:
+
+```json
+{
+  "type": "transfer_call",
+  "name": "transfer_to_support",
+  "description": "Transfer the caller to the support team when they have a technical problem.",
+  "phone_directory": [
+    {
+      "name": "Support",
+      "phone_number": "+61390000000",
+      "description": "Technical support queue",
+      "transfer_type": "warm"
+    }
+  ],
+  "announcement_type": "static",
+  "announcement_message": "I'll transfer you to our support team now.",
+  "transfer_declined_type": "static",
+  "transfer_declined_message": "I wasn't able to reach support. Can I take a message instead?",
+  "custom_sip_headers": {
+    "X-Source": "colloqui",
+    "X-Queue": "support",
+    "X-Agent-Name": "Reception"
+  }
+}
+```
+
+On the receiving side, the equivalent for a conversation-flow node is the same `custom_sip_headers` object inside the node's `config`.
 
 ## On the receiving side
 
-Your phone system has to be configured to read the headers. How depends on the system; most PBXs expose custom headers to dial plans or routing rules. Test with a single header first and confirm it arrives before relying on it.
+Your phone system has to be configured to read the headers. Most PBXs expose custom INVITE headers to the dial plan or to routing rules under a per-vendor syntax, and some SIP trunks strip unknown headers. Three practical checks:
+
+1. Start with one header and a fixed value, and confirm it arrives in your PBX's SIP trace before adding more.
+2. If the destination is reached through a carrier rather than a direct SIP trunk, assume headers do not survive. Carrier PSTN hops drop them.
+3. Keep names and values short and ASCII. Anything a dial plan has to parse should be a single token.
+
+## Inbound headers
+
+Headers on the inbound call (from your carrier to Colloqui) are not exposed to the agent. The caller's number and the dialled number are available as the `user_number` and `agent_number` variables, and that is the only call signalling the agent can read. See [Variables](/conversation-flows/variables).
 
 ## By API
 
-Headers are the `custom_sip_headers` object on a transfer tool or transfer node config, as header name to value pairs.
+Headers are the `custom_sip_headers` object on a transfer tool (`llm_config.tools[]`, type `transfer_call`) or on a Transfer Call node's `config`, as header name to value pairs. Set it to `null` or omit it to send none. Update the agent with [Update Agent](/api-reference/agents/update) and publish with [Publish Agent](/api-reference/agents/publish).
+
+```bash
+curl -X PUT https://dashboard.colloqui.ai/api/v1/agents/$AGENT_ID \
+  -H "Authorization: Bearer $COLLOQUI_API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d @agent.json
+```
+
+where `agent.json` is the full agent object with the transfer tool's `custom_sip_headers` filled in. Every value must be a string; a number or nested object is rejected with a validation error on `llm_config.tools.N.custom_sip_headers.<name>`.
+
+## Troubleshooting
+
+**The headers do not arrive.** Check the changelog first: until header delivery ships, none are sent. Once it has, check whether the destination is reached over SIP end to end; a PSTN hop removes custom headers. Finally, confirm the transfer itself connected: a declined or failed transfer never sends the INVITE that would carry them.
+
+**Validation error on save.** Each value must be a string. Quote numeric values (`"42"`, not `42`).
+
+**I need the caller's number at the destination.** Rely on the caller id of the transferred leg, or use a warm transfer with a prompt-based announcement that has the agent state the caller's name and number to the person answering.
+
+## Related
+
+- [Transfer call](/build-an-agent/tools/transfer-call): directory, warm and cold transfers, voicemail detection
+- [Nodes](/conversation-flows/nodes): the Transfer Call node
+- [Numbers](/deploy/numbers)

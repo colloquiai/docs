@@ -3,37 +3,148 @@ title: "Speech-to-text"
 description: "Transcription, key terms, and how the agent decides the caller has finished speaking."
 ---
 
-Speech-to-text turns the caller's audio into the text the model reads. Its settings also decide two things callers feel directly: how long the agent waits before replying, and how easily it stops when the caller talks over it.
+Speech-to-text turns the caller's audio into the text the model reads. Its settings decide two things callers feel directly: how long the agent waits before replying once they stop talking, and how easily it stops when they talk over it. A receptionist that takes short answers wants fast turn-taking; an agent that asks callers to read out a reference number wants to wait. The provider and model live under **Realtime Transcription Settings** on the agent page; the two turn-taking sliders live under **Speech Settings**.
 
-## Provider and model
+## How it works
 
-| Provider | Models |
-|---|---|
-| Deepgram | Nova 3, Flux (English) |
-| AssemblyAI | Universal Streaming (English), Universal 3.5 Pro |
+1. Inbound audio is passed through noise cancellation tuned for phone calls, then streamed to the transcription provider, which returns interim results as the caller speaks and a final transcript when they pause.
+2. A voice-activity detector and a turn-detection model watch the audio and the interim transcript. When the caller stops, the agent waits a short, configurable minimum (**Response Eagerness**), and the turn-detection model can extend that wait, up to 1.5 seconds in total, if the caller sounds unfinished.
+3. Once the turn is committed, the final transcript becomes the caller's message. The agent has usually already started preparing a reply on the interim transcript; if the caller carries on talking, that early work is discarded and a new reply is generated on the full sentence.
+4. While the agent is speaking, caller audio is still transcribed. If the caller speaks for longer than the interruption threshold (**Interruption Sensitivity**), the agent stops mid-sentence and listens.
 
-New agents use Deepgram Nova 3. Both providers are accurate on clear phone audio. If you have callers with strong accents or a lot of background noise, test a short set of real recordings on each before deciding.
+Transcription is English-only on the models currently offered.
+
+## Providers and models
+
+| Provider | Model (API name) | Notes |
+|---|---|---|
+| Deepgram | Nova 3 (`nova-3`) | Default for new agents. Interim results on, punctuation on, filler words kept. |
+| Deepgram | Flux (`flux-general-en`) | Deepgram's conversational model with its own end-of-turn detection. Offered only when enabled for your deployment; an agent already using it keeps it. |
+| AssemblyAI | Universal Streaming (English) (`universal-streaming-english`) | Streaming model. |
+| AssemblyAI | Universal-3.5 Pro (`universal-3-5-pro`) | AssemblyAI's higher-accuracy streaming model. |
+
+Both providers are accurate on clear phone audio. If you have callers with strong accents, a lot of background noise, or a vocabulary of product names, test a short set of real recordings on each before deciding. Switching provider resets the model to the first in that provider's list.
+
+## Settings
+
+| Setting (UI label) | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Provider** | `stt_config.provider` | `deepgram`, `assemblyai` | `deepgram` | |
+| **Model** | `stt_config.model` | A model name from the provider's list | `nova-3` | Required whenever `provider` is sent. |
+| **Keyterms** | `stt_config.keyterms` | Array of strings, each up to 255 characters | empty | Comma-separated in the dashboard. |
+| **Automatic keyterm detection** | `stt_config.automatic_keyterm_detection` | boolean | off | |
+| **Response Eagerness** | `stt_config.responsiveness` | 0 to 1 | 0.8 | Under **Speech Settings**. Scale reads **Patient** to **Instant**. |
+| **Interruption Sensitivity** | `stt_config.interruption_sensitivity` | 0 to 1 | 0.8 | Under **Speech Settings**. Scale reads **Blocks interruption** to **Stops immediately**. |
 
 ## Key terms
 
-Key terms are words you expect callers to say that a transcriber might not know: product names, street names, surnames, industry jargon. Add them and the transcriber favours them when the audio is ambiguous. Each term is capped at 255 characters.
+Key terms are words you expect callers to say that a transcriber might not know: product names, street and suburb names, surnames, industry jargon, and the short words that your flow depends on. They are stored with the agent's transcription settings to bias recognition toward those spellings.
 
-Turn on **automatic key term detection** to let the agent add terms it hears during the call to the list for the rest of that call. This helps when a caller spells a name once and then uses it repeatedly.
+In the dashboard, type them into **Keyterms** separated by commas. Wrap a term in double quotes if it contains a comma: `Colloqui, ACME, "Smith, John"`. Each term is limited to 255 characters, and blank entries are dropped.
 
-Short, common words are mistranscribed more often than long ones. If your agent keeps hearing "no" as "oh" or "yes" as "yeah", add them as key terms.
+What to add:
 
-## Response eagerness
+- Every surname and team name in a transfer directory. A transfer that depends on matching "Fitzjohn" fails when the transcript says "fits John".
+- Product and plan names, and any code callers read out.
+- Short words that are commonly misheard on phone audio. "Callback" has been transcribed as "cold bike" on real calls; adding it as a key term fixed it.
+- Abbreviations callers use out loud, with the expansion as a separate term ("DM", "duty manager").
 
-Shown as **Response Eagerness** in the dashboard and `responsiveness` in the API, this is a value from 0 to 1 that sets how long a pause counts as the end of the caller's turn. Higher values make the agent reply sooner. Lower values let the caller pause mid-sentence without being cut off.
+**Automatic keyterm detection** has the agent pick up unusual spellings from the recent transcript during the call, such as a caller's name or a product they mention, so later mentions are transcribed consistently.
 
-The default of 1 suits short, quick exchanges. For callers who think out loud, or who are reading details from a document, try 0.5 so the agent waits a little longer. Flows that collect numbers one digit at a time want a lower value too.
+## Response Eagerness
 
-## Interruption sensitivity
+**Response Eagerness** sets the minimum silence, after the caller stops, before the agent treats the turn as finished. It maps to a wait of about 1.1 seconds minus the slider value, with a floor of 0.1 seconds:
 
-Shown as **Interruption Sensitivity**, from **Patient** to **Instant**, this sets how quickly the agent stops talking when the caller speaks. At the instant end, any sound stops it, which means a cough or an "mm-hmm" can cut off a sentence. At the patient end the caller has to say a few words before the agent yields.
+| Value | Minimum wait after the caller stops |
+|---|---|
+| 1.0 (**Instant**) | 0.1 s |
+| 0.8 (default) | 0.3 s |
+| 0.5 | 0.6 s |
+| 0.2 | 0.9 s |
+| 0 (**Patient**) | 1.1 s |
 
-Leave it high for conversational agents. Lower it for agents that read back long confirmations, where backchannel noises would otherwise interrupt the read-back and the agent would treat the interruption as an answer.
+The turn-detection model can hold the turn open beyond this minimum, up to 1.5 seconds, when the caller's words sound incomplete ("my number is zero four..."). It cannot shorten the minimum. So the slider sets the floor; the model adds patience where the speech itself asks for it.
+
+The default of 0.8 suits short, quick exchanges. For callers who think out loud, read details from a document, or give long addresses, try 0.5 so the agent waits a little longer. Flows that collect numbers one digit at a time want a lower value too. Going all the way to **Instant** makes every reply feel abrupt and increases the chance that a mid-sentence breath is taken as the end of the turn.
+
+<Tip>
+At 0.5 a one-word answer commits after 0.6 seconds of silence. Design the questions in a flow for one-word or one-phrase answers and the agent will feel responsive even at a patient setting.
+</Tip>
+
+## Interruption Sensitivity
+
+**Interruption Sensitivity** sets how long the caller must speak, while the agent is talking, before the agent stops. It uses the same mapping: about 1.1 seconds minus the slider value, floored at 0.1 seconds.
+
+| Value | Caller must speak for | Effect |
+|---|---|---|
+| 1.0 (**Stops immediately**) | 0.1 s | Any sound stops the agent, including a cough or "mm-hmm". |
+| 0.8 (default) | 0.3 s | A word or two stops it. A 0.4-second "mm-hmm" still counts. |
+| 0.5 | 0.6 s | The caller has to say a short phrase. |
+| 0.2 | 0.9 s | The caller has to say a sentence. |
+| 0 (**Blocks interruption**) | never | Interruption is off for the whole agent. |
+
+Leave it high for conversational agents, where callers expect to cut in. Lower it for agents that read back long confirmations, reference numbers or legal wording, where a backchannel noise would otherwise cut the read-back short and the agent would then treat the interruption as an answer. On a confirmation line like "Just to confirm, your suburb is..." an "mm-hmm" at the default setting has been taken as "yes" on real calls.
+
+Two things are never interruptible, whatever the setting: transfer announcements and the goodbye line of an End Call tool. The silence reminders described in [Voice behavior](/build-an-agent/voice-behavior) are interruptible.
+
+### Per-node interruption in a flow
+
+In a conversation flow, each Conversation and Sub Agent node has an **Allow interruptions** switch (on by default) under **Node Settings**. Turning it off stops the caller interrupting that node while it speaks, without changing the agent-wide sensitivity. Use it on read-back and disclaimer nodes. By API it is `allow_interruptions: {"enabled": false}` on the node, an object rather than a bare boolean.
+
+## Setting it up
+
+<Steps>
+  <Step title="Choose provider and model">
+    On the agent page, open **Realtime Transcription Settings**. Pick **Provider**, then **Model**.
+  </Step>
+  <Step title="Add key terms">
+    Type terms into **Keyterms**, comma-separated. Switch on **Automatic keyterm detection** if callers introduce names the agent must repeat.
+  </Step>
+  <Step title="Tune turn-taking">
+    Open **Speech Settings**. Drag **Response Eagerness** and **Interruption Sensitivity**. The value shows beside each slider to two decimal places.
+  </Step>
+  <Step title="Save and test on a real call">
+    Turn-taking only shows on audio. Call the agent, read out a phone number slowly, and talk over a long sentence, then adjust.
+  </Step>
+</Steps>
 
 ## By API
 
-These settings live under `stt_config`. Responsiveness and interruption sensitivity are numbers from 0 to 1. See [Update Agent](/api-reference/agents/update).
+```bash
+curl -X PUT https://dashboard.colloqui.ai/api/v1/agents/{agent_id} \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stt_config": {
+      "provider": "deepgram",
+      "model": "nova-3",
+      "keyterms": ["Colloqui", "Fitzjohn", "callback", "duty manager"],
+      "automatic_keyterm_detection": true,
+      "responsiveness": 0.6,
+      "interruption_sensitivity": 0.5
+    }
+  }'
+```
+
+`responsiveness` and `interruption_sensitivity` are numbers from 0 to 1. `model` must be one of the names in the table above for the chosen provider. See [Update Agent](/api-reference/agents/update).
+
+## Troubleshooting
+
+**The agent cuts callers off while they are reading out a number or address.** Lower **Response Eagerness** to 0.5 or below. Also tell the prompt to ask for details in small pieces ("What's the first part of the postcode?").
+
+**The agent waits too long after short answers.** Raise **Response Eagerness**. If it is already 0.8 or above, the delay is the model or the knowledge-base retrieval, not the transcriber; see [Knowledge base tuning](/build-an-agent/knowledge-base-tuning).
+
+**Read-backs get cut short by "mm-hmm" and the agent treats it as confirmation.** Lower **Interruption Sensitivity** to 0.5, or turn off **Allow interruptions** on the read-back node. In a flow, route the confirmation through a branch whose first edge checks whether the read-back was actually completed; see [Patterns](/conversation-flows/patterns).
+
+**Names are transcribed wrongly and transfers fail.** Add the names as key terms, and tell the transfer description to pick the closest directory match rather than passing the name exactly as heard. See [Transfer call](/build-an-agent/tools/transfer-call).
+
+**"The selected model is invalid" when saving.** The model name does not belong to the chosen provider, or it is the Flux model and Flux is not enabled for your deployment.
+
+**The agent answered a question the caller had not finished asking.** The caller paused mid-sentence for longer than the wait. Lower **Response Eagerness** a step. The agent discards a half-formed reply if the caller resumes, but only while that reply is still being prepared, not once it has started speaking.
+
+## Related
+
+- [Voice behavior](/build-an-agent/voice-behavior)
+- [Text-to-speech](/build-an-agent/tts)
+- [Prompt examples](/core-concepts/prompt-examples)

@@ -3,60 +3,188 @@ title: "Migrating from Retell"
 description: "What maps directly, what changes, and what to check."
 ---
 
-If you have built agents on Retell AI, the way you think about them carries over: prompts, tools, flows and testing all work the same way. The configuration format does not, so an agent is re-created rather than imported. This page is the map.
+If you have built agents on Retell AI, the way you think about them carries over: prompts, tools, flows, versions and testing all work the same way, and the prompt discipline you learned applies unchanged. The configuration format does not carry over, so an agent is re-created rather than imported. This page maps the concepts and fields, lists what has no equivalent, and gives a step-by-step migration with the gotchas that have caught people in practice.
 
-## Agent types
+## Concept mapping
 
-| Retell | Colloqui |
-|---|---|
-| Single prompt agent | Single Prompt agent |
-| Conversational flow | Conversation Flow agent |
+| Retell | Colloqui | Notes |
+|---|---|---|
+| Single-prompt agent | Single Prompt agent | One global prompt plus tools |
+| Conversation flow | Conversation Flow agent | The flow lives on the agent as `multi_node_config`; there is no separate flow resource |
+| Agent + response engine | Agent | Prompt, model, voice and flow are all on the one agent object |
+| Phone number | Phone number | Australian numbers only; each has an inbound and an outbound agent |
+| Knowledge base | Knowledge base | Web pages, files and text; linked by `llm_config.knowledge_base_ids` |
+| Published version with `version_title` | Published version with a description | Numbered versions; the optional description is free text up to 1,000 characters |
+| General tools / node tools | Tools on the agent, or nodes and Sub Agent node tools in a flow | Six types: end call, transfer, press IVR, send SMS, extract variable, custom function |
+| Custom function (tool referenced by `tool_id`) | Custom Function node, or `custom_function` tool | Configuration is inline on the node or tool; there is no shared tool list |
+| Webhook URL on the agent | Workspace webhooks | Registered per workspace, not per agent |
+| Chat agent, batch test, simulated calls | None | Test with real calls |
+| Workspace | Workspace | Colloqui scopes API keys to one workspace each |
 
-## Flow nodes
+## Agent settings
 
-| Retell node | Colloqui node |
-|---|---|
-| Conversation | Conversation |
-| Logic split | Logic Split |
-| Extract variable | Extract Variable |
-| Function | Custom Function |
-| Transfer call | Transfer Call, which also supports several destinations in one node |
-| SMS | Send SMS |
-| End | End Call |
-| Global node | Any node with a global node condition |
-| Component, code, MCP, bridge | No equivalent |
+| Retell field | Colloqui field | Notes |
+|---|---|---|
+| `general_prompt` | `prompt_config.prompt` | Global prompt; in a flow it applies to every node |
+| `begin_message` | `prompt_config.welcome_message` with `welcome_message_type: static` | `dynamic` lets the model generate the greeting. Not used by flow agents; the start node greets |
+| `start_speaker` | `prompt_config.first_speaker` (`ai` or `user`) | With `ai_speak_after_silence` and `ai_speak_wait_time` for the user-first timeout |
+| `model`, `model_temperature` | `llm_config.provider`, `llm_config.model`, `llm_config.temperature` | Providers: Azure OpenAI, Mistral, Bedrock Claude, Groq, or a custom endpoint. Temperature 0 to 1 |
+| `voice_id` (named voices) | `tts_config.provider`, `tts_config.model`, `tts_config.voice_id` | Provider voice ids, chosen from the dashboard catalogue; Retell voice names are not accepted |
+| `voice_speed` | `tts_config.speed` or `speed_alpha` | Range depends on provider |
+| `volume`, `voice_temperature` | None | |
+| `responsiveness` | `stt_config.responsiveness` (**Response Eagerness**) | 0 to 1 |
+| `interruption_sensitivity` | `stt_config.interruption_sensitivity` | 0 to 1 |
+| `enable_backchannel`, `backchannel_frequency`, `backchannel_words` | `tts_config.enable_backchannel`, `backchannel_frequency`, `backchannel_words[]` | Same idea |
+| `reminder_trigger_ms` | `tts_config.reminder_trigger_ms` (**Reminder Message Frequency**) | 1,000 to 60,000 ms. There is no reminder count setting |
+| `ambient_sound`, `ambient_sound_volume` | `tts_config.ambient_sound` (`none`, `office_ambience`, `keyboard_typing`, `keyboard_typing2`), `ambient_sound_volume` | Different sound set |
+| `boosted_keywords` | `stt_config.keyterms[]` plus `automatic_keyterm_detection` | Each term up to 255 characters |
+| `max_call_duration_ms` | `call_config.max_call_duration_ms` | 60,000 to 7,200,000 |
+| `ring_duration_ms` | `call_config.ring_duration_ms` | 5,000 to 300,000 |
+| Call recording settings | `call_config.recording_enabled` | On by default; recordings are dual channel |
+| `kb_config.top_k`, `kb_config.filter_score` | `knowledge_base_config.chunks_to_retrieve`, `knowledge_base_config.similarity_threshold` | 1 to 10 and 0.30 to 0.95 |
+| `guardrail_config` topic lists | Guardrail objects linked in `guardrails_config.guardrails[]` with `source` input or output, plus `semantic_guardrail` | A different model: see [Guardrails](/build-an-agent/guardrails) |
+| Timezone in `default_dynamic_variables` | `timezone` on the agent | Enables `{{current_time}}` and the time context; set it with an update, not on create |
+| `handbook_config` toggles | None | Write the behaviour into the prompt (see below) |
+| `pii_config`, `post_call_analysis_data`, `post_call_analysis_model` | None | |
+| `end_call_after_silence_ms` | None per agent | Caller silence is handled by the platform's inactivity prompts |
+| `voicemail_option` | `voicemail_detection` on the Transfer Call tool only | Detects voicemail on the transfer leg, not on the inbound call |
+| `pronunciation_dictionary`, `normalize_for_speech`, `user_dtmf_options` | None | Spell it out in the prompt where it matters |
 
-## Structural differences
+## Tools
 
-- **Edges live on nodes.** In Retell, edges are a top-level list. In Colloqui each node carries its own edges, plus its else, always and skip-response edges.
-- **Functions are nodes.** Retell defines a tool once and references it from a node. Colloqui puts the function's full configuration on the Custom Function node, or on the tool for a single-prompt agent.
-- **Transfer directories.** One Transfer Call tool holds a directory of destinations with descriptions, where Retell typically needs one node per destination.
-- **Voice ids** are provider ids rather than Retell's named voices. Choose from the dashboard's catalog.
-- **Workspaces.** An API key is bound to one workspace, so point your deployment at the right one by creating the key there.
+| Retell tool | Colloqui tool or node | Notes |
+|---|---|---|
+| `end_call` | `end_call` | `goodbye_type` static or prompt, `goodbye_message` up to 1,000 characters |
+| `transfer_call` with one destination | `transfer_call` with a `phone_directory[]` | Several destinations in one tool, each with a name, E.164 number, description and `transfer_type` warm or cold; announcement and declined lines; `hold_audio`; custom SIP headers; voicemail handling |
+| `press_digit` | `press_ivr` | `pause_detection_delay_ms` 1,000 to 6,000; API only, no dialog |
+| `send_sms` | `send_sms` | `content_type` prompt or static; `send_to` caller or a fixed mobile number |
+| `extract_dynamic_variable` | `extract_dynamic_variable` | Types string, number, integer, boolean, enum with choices |
+| `custom` function | `custom_function` | `http_method`, `api_endpoint` (may contain variables), `timeout`, headers, query, `custom_function_parameters` as a JSON schema string, `custom_function_variables` for the response, `speak_during_execution` and `speak_after_execution` with messages |
+| Calendar booking tools, `agent_swap`, MCP tools | None | Use a Custom Function against your own booking API |
 
-Both platforms agree that the else edge's condition is the fixed word "Else", that transfer numbers are international format, and that prompt and equation conditions are the two kinds of edge.
+## Flow nodes and edges
 
-## Retell features without a direct equivalent
+| Retell | Colloqui | Notes |
+|---|---|---|
+| `conversation` node | `conversation` node (**Conversation**) | `instruction.type` prompt or static, `instruction.text` |
+| `logic_split` node | `branch` node (**Logic Split**) | Equation edges plus an else edge; no instruction |
+| `extract_dynamic_variables` node | `extract_dynamic_variable` node (**Extract Variable**) | Can run in the background |
+| `function` node referencing a tool | `custom_function` node (**Custom Function**) | The function's configuration is inline in the node's `config` |
+| `transfer_call` node | `transfer_call` node (**Transfer Call**) | Multi-destination directory; the else edge is the failure path |
+| `sms` node | `send_sms` node (**Send SMS**) | |
+| `end` node | `end_call` node (**End Call**) | |
+| Sub-agent or component | `sub_agent` node (**Sub Agent**) | A conversation node that also carries tools; the only node type that does |
+| Code, MCP, bridge nodes | None | |
+| Top-level `edges[]` | `edges[]` inside each node | Equation edges must come before prompt edges on a node |
+| `transition_condition` prompt | `transition_condition: {type: "prompt", prompt: "..."}` | |
+| `transition_condition` equation | `transition_condition: {type: "equation", operator: "&&" or "\|\|", equations: [{left, operator, right}]}` | Operators `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `not_contains`, `exists`, `not_exists` |
+| Else edge | `else_edge` | Its prompt is the fixed word "Else" |
+| Skip-response edge | `skip_response_edge` | Prompt "Skip response"; a node has edges and an else, or an always edge, or a skip-response edge, never a mix |
+| Always transition | `always_edge` | Prompt "Always"; not on custom function, extract variable or branch nodes |
+| Global node settings | `global_node_settings: {condition, go_back_conditions[]}` on any node (**Global Node**) | |
+| `interruption_sensitivity` per node | `allow_interruptions: {enabled: true}` | Conversation and Sub Agent nodes only; an object, not a boolean |
+| `model_choice` per node | Per-node `llm_config` with provider and model, or `inherit` | |
+| `knowledge_base_ids` per node | Per-node `llm_config.knowledge_base_ids[]` | |
+| Node ids as free strings | Node ids as ULIDs | Regenerate every id |
+
+## Features without an equivalent
 
 Plan replacements for these before you move:
 
-- **Handbook toggles** such as speech normalisation, phonetic spelling and personality presets. Write the behaviour into the prompt instead.
-- **PII redaction**, **post-call analysis configuration** and **flex mode**.
-- **Ambient sound selection** maps to Colloqui's background sound options.
-- **Version titles.** Colloqui versions carry a description instead.
-- **Chat agents and batch testing.** Colloqui agents are voice agents.
-- **Guardrail topic lists.** Colloqui guardrails are standalone definitions attached to agents with input and output sources. See [Guardrails](/build-an-agent/guardrails).
+- **Handbook toggles** such as speech normalisation, echo verification, phonetic spelling, scope boundaries, filler words, personality presets, empathy, smart matching and AI disclosure. Each becomes a short block in the prompt. See [Prompt engineering](/core-concepts/prompt-engineering) for the patterns.
+- **PII redaction** and **post-call analysis configuration**. Call History stores the transcript, recording and extracted data as they are.
+- **Flex mode** and its token budget.
+- **Chat agents, batch testing and simulated callers.** Test with real calls and review them in Call History.
+- **Calendar tools, MCP and code nodes.** Put the logic behind an HTTP endpoint and call it with a Custom Function.
+- **Guardrail topic lists.** Build guardrail objects with examples, keywords, a threshold and a response, then link them to the agent as input or output guardrails.
+- **Per-agent silence timeout, pronunciation dictionary, caller DTMF options.**
+
+Colloqui has a few things Retell does not: a multi-destination phone directory on one transfer tool, workspaces with roles and per-module access, a built-in current-time action and time variables when the agent has a timezone, and per-agent bundles.
+
+## Step-by-step migration
+
+<Steps>
+  <Step title="Export the Retell configuration">
+    Fetch the agent, its response engine or flow, and its tools from the Retell API so you have every prompt, instruction, edge condition and tool setting in one place. Strip any secrets from headers before you store it.
+  </Step>
+  <Step title="Create the Colloqui agent">
+    Pick the matching type in **Create Agent**. Set the global prompt, first speaker and welcome message, then choose the model, voice and transcription from the dashboard lists. A payment method must be on the workspace first.
+  </Step>
+  <Step title="Rebuild the tools">
+    Single prompt: add each tool under **Functions**. Collapse several transfer tools into one Transfer Call tool with a directory entry per destination, and convert numbers to E.164. Rewrite each custom function inline, with its parameters as a JSON schema and its response fields as variables. Press IVR tools go in by API.
+  </Step>
+  <Step title="Rebuild the flow">
+    Create each node on the canvas with the same instruction text. Put each edge on its source node, equation edges first. Set the else edge on every node that has prompt edges, and use always or skip-response edges where the Retell flow relied on them, remembering that a node takes one of the three forms, not a mix. Mark global nodes with a **Global Node** condition. Link node-level knowledge bases where the Retell flow had them.
+  </Step>
+  <Step title="Rewrite handbook behaviour into the prompt">
+    Add a block for each toggle the Retell agent used: how to read numbers aloud, when to repeat details back, how to spell codes, what is out of scope, how to answer "are you a person".
+  </Step>
+  <Step title="Set the timezone">
+    Under **Agent Settings**, choose the timezone. By API, send it with an update after creation and read the agent back.
+  </Step>
+  <Step title="Link knowledge bases and guardrails">
+    Create the knowledge bases and wait for every source to be ingested, then link them. Create guardrails for the topics the Retell guardrail lists covered and link them with the right source.
+  </Step>
+  <Step title="Assign a number and test">
+    Assigning a number publishes the agent. Call it and run through each path. Review the transcript and recording in **Call History**, then publish again with a description after each fix.
+  </Step>
+</Steps>
 
 ## What still applies
 
-The method is unchanged. Critical rules at the top of the prompt. One question per turn. Explicit failure paths on every tool. A structural fix over a prompt fix when the model keeps ignoring an instruction. Test in voice, not only in text. See [Prompt engineering](/core-concepts/prompt-engineering) and [Patterns](/conversation-flows/patterns).
+The method is unchanged. Critical rules at the top of the prompt. One question per turn. Explicit failure paths on every tool. A structural fix, such as a dedicated node, over a prompt fix when the model keeps ignoring an instruction. Test in voice, not only in text. See [Prompt engineering](/core-concepts/prompt-engineering) and [Patterns](/conversation-flows/patterns).
+
+## Gotchas
+
+<AccordionGroup>
+  <Accordion title="The API key is bound to one workspace">
+    There is no workspace parameter on any request. Create the key in the workspace you are migrating into, and check [List Agents](/api-reference/agents/list) before building. See [Authentication](/get-started/authentication).
+  </Accordion>
+  <Accordion title="Send Accept: application/json or you will see a 302">
+    A validation failure without that header returns a redirect with no body. With it you get a `422` listing every bad field under `errors`.
+  </Accordion>
+  <Accordion title="There is no agent_type field">
+    Creating with a `multi_node_config` makes a conversation flow; without one, a single-prompt agent. The list endpoint reports `agent_type`; the detail endpoint does not.
+  </Accordion>
+  <Accordion title="Timezone is ignored on create">
+    Set `timezone` with an update after creation, then read the agent back. Time variables resolve in UTC until you do.
+  </Accordion>
+  <Accordion title="Node ids must be ULIDs and edges need ids">
+    Free-form node ids are rejected. Every edge needs its own `id`, unique across the whole flow. The dashboard generates both; a script must too.
+  </Accordion>
+  <Accordion title="A node has one kind of exit">
+    Edges plus an else edge, or an always edge, or a skip-response edge. A node with a skip-response edge cannot also carry an else edge; that is correct and complete, not a dead end.
+  </Accordion>
+  <Accordion title="Update replaces; read, merge, then send">
+    [Update Agent](/api-reference/agents/update) replaces the blocks you send. Read the agent, change what you need, and send the whole block back. Nodes read back from the API need `config.type` set to the node's type on every node that has a `config` before you send them again.
+  </Accordion>
+  <Accordion title="Provider, model and voice values are validated against the catalogue">
+    "The selected LLM provider is invalid" and "The selected voice id is invalid" mean the value is not in Colloqui's lists. Pick from the dashboard, or copy the provider, model and voice from an existing agent.
+  </Accordion>
+  <Accordion title="Flow agents ignore the welcome message">
+    On a conversation flow the start node's instruction is the greeting; `welcome_message` and `welcome_message_type` are not used. Only `first_speaker` and the user-first timeout apply.
+  </Accordion>
+  <Accordion title="Header values are stored as entered">
+    Custom Function headers are stored and returned as you entered them, including API keys. Prefer short-lived or scoped keys for the endpoints your agent calls, and keep the agent's workspace membership tight.
+  </Accordion>
+  <Accordion title="Assigning a number publishes the draft">
+    Attaching a number to an agent is a live-facing publish, and the agent that lost the number goes to draft if it has no other numbers. Treat a number move with the same care as clicking **Publish**. See [Phone numbers](/core-concepts/numbers).
+  </Accordion>
+  <Accordion title="Reload the agent page before editing">
+    The dashboard saves the whole agent as loaded in that tab. Editing in a tab opened before a colleague's publish will overwrite their changes with your tab's older copy plus your edit. Reload before editing, and check **Versions** after publishing.
+  </Accordion>
+  <Accordion title="Knowledge bases must be fully ingested before linking">
+    Saving an agent that links a knowledge base with a source still pending or processing is rejected. Create knowledge bases first, wait, then link.
+  </Accordion>
+</AccordionGroup>
 
 ## Checklist
 
-- Create the agent with the matching type.
-- Rebuild tools as Colloqui tools or nodes; collapse transfer nodes into one directory.
-- Move each edge onto its source node.
-- Choose a voice and model from the Colloqui catalog.
+- Create the agent with the matching type, on a workspace with a payment method.
+- Rebuild tools as Colloqui tools or nodes; collapse transfer tools into one directory with E.164 numbers.
+- Move each edge onto its source node, equation edges first, and give every node one kind of exit.
+- Choose provider, model and voice from the Colloqui catalogue.
 - Rewrite handbook behaviour into the prompt.
-- Set the agent's timezone.
-- Assign a number, which publishes the agent, and test with a real call.
+- Set the agent's timezone with an update and confirm it stuck.
+- Create and ingest knowledge bases, then link them; link guardrails.
+- Assign a number, which publishes the agent, and test with real calls.

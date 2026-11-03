@@ -1,28 +1,143 @@
 ---
 title: "Voicemail"
-description: "What happens when a transfer reaches voicemail."
+description: "What happens when a transfer reaches voicemail, and how to choose the right action."
 ---
 
-Voicemail handling applies to transfers. When the agent transfers a caller and the destination goes to voicemail, you decide what the agent does.
+Voicemail handling applies to warm transfers. When the agent hands a caller to a person and the destination goes to voicemail instead, you decide what the agent does: hang up and bring the caller back, leave a message you wrote, or leave a message the model composes. A receptionist agent that takes messages itself usually wants the first; an agent that is purely a switchboard, with nobody else to take a message, wants one of the other two.
 
-## Voicemail detection
+There is no voicemail detection on outbound calls the agent places itself, and none on cold transfers, because a cold transfer hands the caller off and the agent leaves the call. If you need the agent to recognise voicemail on an outbound campaign, that is not available today.
 
-Turn on **Voicemail Detection** in the transfer tool or node. The agent listens to the destination as it connects and recognises a voicemail greeting.
+## How it works
 
-## What to do when it is detected
+A warm transfer runs as a consultation before the caller is connected:
 
-| Action | What happens |
-|---|---|
-| Hang up | The transfer leg is dropped and the caller comes back to the agent as if the transfer was declined. The caller never hears the voicemail. |
-| Message | The agent leaves the text you provide as a message, then returns to the caller. You can have it hang up after the message. |
-| Prompt | The agent composes a message from your description, for example "leave the caller's name and number and say they would like a call back". |
+1. The agent speaks the transfer announcement to the caller, then puts them on hold (with the **Hold Audio** you chose).
+2. The platform dials the destination. If nobody answers within the agent's **Ring Duration**, the transfer fails with reason "no answer" and the caller comes back.
+3. When the destination answers, a briefing agent greets whoever picked up: "Hi, I have [caller] on the line for you — [summary]. Are you available to take this call?" and listens to the reply.
+4. If, at any point, what it hears is a voicemail greeting rather than a person, it treats the call as having reached voicemail. Detection is done by listening and judgement, not by a tone detector, so a very short or unusual greeting can occasionally be missed; a person who says "yes, put them through" is connected as normal.
+5. What happens next depends on **Voicemail Detection** and the action you chose:
+   - Detection **off**: the voicemail is treated as a declined transfer. Nothing is left on the voicemail.
+   - Detection **on**, action **Hang up**: the transfer leg is dropped immediately. Nothing is left on the voicemail.
+   - Detection **on**, action **Leave a message** with a **Static Message**: your text is spoken onto the voicemail, the platform waits for it to finish playing, then hangs up the transfer leg.
+   - Detection **on**, action **Leave a message** with a **Prompt**: the model composes one short paragraph (it is told to keep under 30 seconds when spoken) from your instructions, the call summary and the destination's name, speaks it onto the voicemail, then hangs up the transfer leg.
+6. The caller is taken off hold and told the outcome, spoken directly by the platform so it cannot be lost to an interrupted model turn:
+   - If a message was left: "I've left them a message. Is there anything else I can help you with?"
+   - If nothing was left (hang up, or detection off): the transfer's **Transfer Declined** message, or if none is set, "I'm sorry, I wasn't able to transfer your call. How else can I help you?"
+   - If **Transfer Declined** is a prompt type, the model composes the outcome line from it instead.
+7. The agent continues the conversation. The model is told the transfer did not succeed, that the caller has already been told, and not to retry the same transfer unless asked.
 
-Hang up is the right default for agents that take messages themselves. The caller is told the person is not available and the agent offers to take a message, which is better than leaving the caller to a stranger's voicemail.
+The whole consultation has a 90-second limit; if nothing has been decided by then, it counts as a failure and the caller comes back.
+
+## Settings
+
+These fields are on the Transfer Call tool (single-prompt agent) and on a Transfer Call node (conversation flow), under the **Voicemail Detection** heading in the dialog.
+
+| Setting (UI label) | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Voicemail Detection** | `voicemail_detection` | on/off | off | "Automatically detect when the call reaches a voicemail and respond accordingly." |
+| **When voicemail is detected** | `voicemail_response_action_type` | **Hang up** (`hangup`), **Leave a message** as **Static Message** (`message`) or **Prompt** (`prompt`) | `hangup` | Sent as null when detection is off. |
+| Message or prompt text | `voicemail_response_text` | text | none | The static message, or the instructions for the model. Sent as null for Hang up. |
+| **Hang up after message** | `voicemail_hangup_after_message` | on/off | off | Only shown, and only allowed to be true, when the action leaves a message. "End the call once the voicemail message has been left." |
+
+The API rejects `voicemail_hangup_after_message: true` when the action is `hangup` or detection is off.
+
+## Which action to choose
+
+**Hang up** is the right default for an agent that takes messages itself. The caller is told the person is not available, the agent offers to take a message, and the message reaches your team through the agent's own channel (an SMS, an email via a custom function, or the call summary) rather than sitting on someone's voicemail. The caller never hears a stranger's greeting.
+
+**Leave a message (Static Message)** suits a switchboard agent with no other way to pass a message on. Write it as something a human assistant would say, and keep it generic, because it is the same on every call:
+
+```text
+Hi, this is the assistant at Harbour Plumbing. A caller tried to reach you through our main line and asked for a call back. Please check the call log for their details. Thank you.
+```
+
+**Leave a message (Prompt)** lets the message carry the specifics: who called and why. The model gets your instructions plus the call summary and the destination's name:
+
+```text
+Leave a brief voicemail from Harbour Plumbing's assistant. Say who called and what they need, using the call context. Ask for a call back. Do not read out phone numbers; say the number is in the call log. Keep it under three sentences.
+```
+
+Use the prompt type only if you are comfortable with the model summarising the caller's words onto someone else's voicemail. Nothing is confirmed with the caller first.
 
 ## Design the return path
 
-Whatever the action, the caller is back with the agent afterwards. In a conversation flow, that is the transfer node's failure transition, and it should lead to a node that takes a message or offers a callback. In a single-prompt agent, say what to offer after a failed transfer in the global prompt.
+Whatever the action, the caller is back with the agent afterwards, and the platform has already told them the outcome. What the agent does next is up to you.
+
+**In a single-prompt agent**, put the offer in the transfer tool's description or the global prompt:
+
+```text
+If a transfer fails or reaches voicemail, do NOT try the same transfer again. Offer to take a message: get the caller's name and the reason, and confirm the number they are calling from is the best one.
+```
+
+**In a conversation flow**, the Transfer Call node's else transition is the failure path, and voicemail (with any action) takes it. Point it at a node that takes a message or offers a callback. A transfer node with no failure path leaves the caller sitting on the node that just failed. Because the caller has already heard the outcome line, the landing node should not repeat it: start with "Can I take a message for them instead?" rather than "Sorry, they're not available."
+
+<Note>
+Set the transfer's **Transfer Declined** message to a static type. A prompt-type declined message has, on real calls, produced a second apology or an offer to transfer somewhere else after the platform already spoke the outcome.
+</Note>
+
+## Setting it up
+
+<Steps>
+  <Step title="Open the transfer tool or node">
+    Edit the Transfer Call tool under **Functions** (single prompt), or select the Transfer Call node and open its settings (flow).
+  </Step>
+  <Step title="Switch on Voicemail Detection">
+    Turn on **Voicemail Detection**. The options appear beneath it.
+  </Step>
+  <Step title="Choose the action">
+    Pick **Hang up** or **Leave a message**. For a message, choose the **Static Message** or **Prompt** tab and enter the text.
+  </Step>
+  <Step title="Decide whether to hang up after the message">
+    **Hang up after message** is described in the dashboard as ending the call once the voicemail message has been left. Leave it off if the caller should come back to the agent.
+  </Step>
+  <Step title="Set the declined message and the return path">
+    Give the transfer a static **Transfer Declined** message, and make sure the failure path leads somewhere useful.
+  </Step>
+  <Step title="Test against a real voicemail">
+    Put a mobile that goes straight to voicemail in the directory and call the agent. Listen to both what the voicemail records and what the caller hears.
+  </Step>
+</Steps>
 
 ## By API
 
-The fields are `voicemail_detection`, `voicemail_response_action_type` (`hangup`, `message` or `prompt`), `voicemail_response_text` and `voicemail_hangup_after_message` on a transfer tool or transfer node config.
+On a transfer tool in `llm_config.tools[]`:
+
+```json
+{
+  "type": "transfer_call",
+  "name": "transfer_to_team",
+  "description": "Transfer when the caller asks for a named person or the accounts team.",
+  "phone_directory": [
+    { "name": "Accounts", "phone_number": "+61400000000", "description": "Invoices and payments", "transfer_type": "warm" }
+  ],
+  "transfer_declined_type": "static",
+  "transfer_declined_message": "They're not available right now.",
+  "voicemail_detection": true,
+  "voicemail_response_action_type": "message",
+  "voicemail_response_text": "Hi, this is the assistant at Harbour Plumbing. A caller asked for a call back. Please check the call log.",
+  "voicemail_hangup_after_message": false
+}
+```
+
+The same four fields go in a Transfer Call node's `config` in a flow (with `"type": "transfer_call"` inside the config). `voicemail_response_action_type` is one of `hangup`, `message` or `prompt`. See [Update Agent](/api-reference/agents/update) and [Transfer call](/build-an-agent/tools/transfer-call).
+
+## Troubleshooting
+
+**The caller was connected to the voicemail and heard the greeting.** The transfer is cold. Voicemail handling needs a warm transfer; set the directory entry's **Transfer Type** to **Warm**.
+
+**Nothing was left on the voicemail even though detection is on.** The action is **Hang up**, or the message text is empty. A message action with no text leaves nothing and then hangs up.
+
+**The voicemail was cut off mid-sentence.** The platform waits for the message to play out and adds a short drain before hanging up; a very long message on a voicemail system with a short recording limit is cut by the voicemail, not the agent. Keep static messages under 20 seconds.
+
+**The caller heard "I've left them a message" but no message was left.** Detection fired on a human who paused, or the voicemail system answered and the message was left on a system that discards short recordings. Check the call in [Call History](/operate/call-history).
+
+**The agent re-tried the transfer immediately.** The failure path points back at the transfer node, or the single-prompt agent has no instruction not to retry. Fix the path; add the instruction.
+
+**Everything goes to "no answer" instead of voicemail.** **Ring Duration** is shorter than the time the destination takes to divert to voicemail. Raise it; see [Voice behavior](/build-an-agent/voice-behavior).
+
+## Related
+
+- [Transfer call](/build-an-agent/tools/transfer-call)
+- [Nodes](/conversation-flows/nodes)
+- [Voice behavior](/build-an-agent/voice-behavior)
+- [Patterns](/conversation-flows/patterns)

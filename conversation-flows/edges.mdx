@@ -3,51 +3,139 @@ title: "Edges and conditions"
 description: "How the flow decides where to go next."
 ---
 
-Edges connect nodes. Each has a condition, and the first edge whose condition holds is taken. If none holds, the node's **else** edge is taken.
+An edge is a transition from one node to another with a condition that says when to take it. A node can have any number of conditional transitions plus one **Else**, or exactly one unconditional transition (**After User Responds** or **Skip User Response**). This page covers the three kinds of condition, the order they are evaluated in, when each node type evaluates them, and how to write conditions that fire reliably.
 
-## Prompt conditions
+## Three kinds of condition
 
-A prompt condition describes the caller's behaviour in words, and the model decides whether the caller's latest reply matches:
+| Kind | Judged by | Use for |
+|---|---|---|
+| Prompt | The model, from the caller's latest message or a node's result | Intent: "Caller asks about opening hours" |
+| Equation | Code, from variable values | Known values: `{{booking_id}} exists`, `{{current_hour}} >= 17` |
+| Else | Nobody; it is the fallback | Everything that matched nothing above |
+
+### Prompt conditions
+
+A prompt condition describes the caller's behaviour in words. Add one with **+** → **Prompt** on the node card; the row is created as "New transition" and the pencil opens an inline editor.
 
 ```text
 Caller asks about opening hours, location or parking
 ```
 
-Write it as something observable in what the caller said, not as internal state. "Caller has given both their name and phone number" works. "Details collected" does not.
+On a speaking node, each prompt transition becomes a tool the model may call during its reply, described as: hand off to this step, call this only when the caller's most recent message matches this condition, prefer a more specific transition if one fits, and do not call it pre-emptively. On a silent node, the prompt transitions are judged together in one classification call that must pick exactly one option, with Else offered as the explicit default.
 
-## Equation conditions
+Write the condition as something observable in what the caller just said, not as internal state. "Caller has given both their name and phone number" works. "Details collected" does not.
 
-An equation condition compares variables and is evaluated exactly. Each edge can hold one or more equations joined by **and** or **or**.
+### Equation conditions
 
-| Operator | Meaning |
-|---|---|
-| `==`, `!=` | Equal, not equal |
-| `>`, `>=`, `<`, `<=` | Numeric comparison. The variable must be a numeric type. |
-| `contains`, `not_contains` | Substring |
-| `exists`, `not_exists` | Whether the variable has a value at all |
+An equation condition compares variables and is evaluated in code, with no model call. Add one with **+** → **Equation**; the **Edit Condition** dialog opens immediately because an empty equation matches nothing.
+
+The dialog has **Follow this transition when** with two options, **All of the conditions match** (`&&`) or **Any of the conditions matches** (`||`), and one or more rows of variable, operator and value. **Add condition** adds a row; **Apply** saves. Write the variable as `{{variable_name}}`. The card shows the first equation in words, with "+1" or "or +1" for the rest.
+
+| Operator | Label in the editor | Behaviour |
+|---|---|---|
+| `==` | is | Equal. Compares numerically when both sides are numbers, so `18` equals `"18"`; otherwise as text. |
+| `!=` | is not | The opposite of is. |
+| `>` `>=` `<` `<=` | is greater than, is at least, is less than, is at most | Numeric. If either side is not a number the equation is false. |
+| `exists` | exists | The variable has a value that is not empty. No right-hand value. |
+| `not_exists` | does not exist | The variable is unset or empty. No right-hand value. |
+| `contains` `not_contains` | contains, does not contain | Offered in the editor; see the warning below. |
+
+<Warning>
+Prefer `==` on an enum variable to **contains**. Substring matching is not reliably evaluated by the runtime, and a condition that uses it may never match. Extract the value as an enum with fixed choices and compare it with **is**.
+</Warning>
+
+The left side is usually a variable. Either side may also be a literal, and a literal may itself contain `{{variables}}`, which are substituted before comparing. A bare `{{variable}}` keeps the stored type, so an integer variable compares as a number.
+
+Numeric literals are plain digits. Compare times as `0900` and `1730`, not `09:00`: a literal with a colon does not parse as a number, so the comparison is silently false and the call takes whatever path is left, usually "closed".
 
 Use `exists` to branch on whether an API call succeeded: a returned id exists on success and not on failure, and you do not have to guess a status string.
 
-Numeric literals are plain digits. Compare times as `0900` and `1730`, not `09:00`. A literal with a colon does not parse as a number, and the comparison silently fails.
+### Else
 
-## Else edge
+Every node that routes conditionally should have an **Else** row, and on Custom Function, Extract Variable, Logic Split and Transfer Call nodes the editor supplies one that cannot be removed. Add it elsewhere with **+** → **Else**; a node has at most one. Its condition is the fixed word **Else** and the API requires the prompt to be exactly `Else`.
 
-Every node that can route needs an else edge, and its condition is the fixed word **Else**. It is the safety net, so point it at the safest landing: usually the node that re-asks, or a node that takes a message.
+Else is the safety net, so point it at the safest landing: usually the node that re-asks, or the node that takes a message.
 
-## Always edge
+On a speaking node, Else is offered to the model as the catch-all transition, described imperatively: whenever the caller's message falls outside what this step handles, you must hand off rather than keep answering. On a silent node it is the default when no prompt condition clearly matches, and the fallback whenever the classification fails.
 
-An always edge fires after the caller's next reply, unconditionally. It is the right exit for a static node that asks a closed question: the node speaks, the caller answers, and the flow moves to a Logic Split that routes on the answer. Routing this way is more reliable than putting prompt conditions on the static node itself, where the model may answer in speech instead of transitioning.
+## Order of evaluation
 
-When a node has an always edge, its other edges do not fire. Put the routing on the next node.
+Within a node, equation transitions are always evaluated before prompt transitions, first match wins, and Else comes last. The editor enforces the order: an equation row cannot be dragged below a prompt row, and the API rejects a node that lists a prompt edge before an equation edge with "This node must list every equation transition condition before the prompt ones."
 
-## Skip response edge
+Prompt rows are offered to the model as a set, so their order matters less, except on a Logic Split, where the order is the order the options are listed to the classifier. Put the specific cases first: a correction with a new value before a bare confirmation, so "no, it's 0412…" is caught as a correction.
 
-A skip response edge leaves the node immediately after it speaks, without waiting for a reply. Use it for nodes that should say something and move on, such as a global node that acknowledges and exits. A node cannot have both a skip response edge and an else edge.
+## Unconditional transitions
 
-## Writing "done" conditions
+Choose **+** → **Always/Skip** to open the **Transition Mode** dialog with two options. A node holds at most one, and it is the node's only way out: applying it deletes the node's prompt, equation and Else rows and their connections, and the dialog says how many before you confirm. Custom Function, Extract Variable and Logic Split nodes cannot take either; they act and then route on the outcome.
 
-The edge into End Call needs care. A bare "thanks", "ok" or "right" is an acknowledgement, not a goodbye, and an edge that treats it as one hangs up on callers who were about to ask something. Write it as an explicit no or a goodbye, and say that a bare acknowledgement does not count.
+### After User Responds (always)
+
+"Wait for the caller to reply, then transition without evaluating any condition." The node speaks, the caller answers, and the flow moves. The caller's answer travels with the conversation, so the next node can route on it.
+
+This is the right exit for a static node that asks a closed question. Put the routing on a Logic Split after it. On a static node with prompt conditions a plain "yes" often produces a spoken reply instead of a transition, and the model then runs the whole task from the wrong node. The always transition fires deterministically.
+
+It fires on the committed turn whether or not the node's line has finished playing. If the caller speaks over the line, or answers a filler phrase, that is the turn it routes on. Give the Logic Split that follows a first row for "the assistant's last message does not end with the question" that loops back to re-ask.
+
+### Skip User Response (skip response)
+
+"Transition straight away, without giving the caller a chance to reply." The node speaks its line and moves on the moment playout finishes. Use it for a disclaimer, an acknowledgement, or a global node that should act and exit, and for a node with no line at all, which moves on immediately.
+
+One exception: if the line the node delivered ends with a question mark, the transition is held until the caller answers, and then fires like an always transition. Skipping immediately would run the next node on an answer that does not exist yet.
+
+## When each node type evaluates its transitions
+
+| Node | When | Equations | Prompts | Else | Always / Skip |
+|---|---|---|---|---|---|
+| Conversation, Sub Agent | After every caller turn, and after one of the node's own tools writes a variable | In code, before the model replies | Tools the model calls during its reply | A tool the model calls | Always after the turn; skip after the line |
+| Logic Split | On entry | In code | One silent classification | Default | Not allowed |
+| Extract Variable | On entry, after extracting | In code, on the stored values | One silent classification over the result | Default | Not allowed |
+| Custom Function | On entry, after the request | In code, on the response variables | One silent classification over the result | Default | Not allowed |
+| Send SMS | On entry, after sending | In code | One silent classification over the result | Default | After the send |
+| Transfer Call | After a failed transfer | None | None | Transfer failed | Not allowed |
+| End Call | Never | None | None | None | None |
+
+Two consequences of the speaking-node order are worth knowing. If a node has an always transition, its prompt transitions never fire on a live call: the always transition is taken before the model runs. And a prompt transition is only as reliable as the end of the caller's turn: the model may decide on an interim transcript, and that decision is discarded if the caller keeps talking. Deterministic exits are immune to both.
+
+## Global nodes and go-back conditions
+
+A global node's condition behaves like a prompt condition offered on every speaking node that has no explicit edge to it. A go-back condition behaves like a prompt condition back to the node the caller came from. Both are described in [Nodes](/conversation-flows/nodes#global-nodes).
+
+## Loop protection
+
+Silent nodes can chain without the caller hearing anything, and a mis-wired graph can cycle. The runtime counts hops since the caller was last heard or spoken to (8 by default) and also notices a node re-entered with nothing said since its last visit. When either trips, a silent destination is redirected to the last speaking node, a note is added to the conversation explaining that transitioning again on the same information will loop, and the model is made to speak instead of transition until the caller provides new information. If you see the agent suddenly ask a clarifying question after a pause, look for a cycle of silent nodes or a go-back condition that fires on entry.
+
+## Writing conditions that transition reliably
+
+- Describe the caller's latest message, not the state of the call.
+- Name the negative cases. A "done" condition into End Call should read: the caller explicitly says no, "no thanks", "that's all" or "nothing else", or says goodbye; a bare "thanks", "ok" or "right" is NOT this condition. Otherwise the agent hangs up on a caller who was about to ask something.
+- Give every speaking node an Else, and every collection node a forward condition that accepts "given, declined, or asked twice without an answer", so a caller who never answers cannot trap it.
+- Put consequential exits on deterministic transitions: equation rows on the values you extracted, or a static question with an always transition into a Logic Split.
+- Keep equation literals as digit strings, and compare only numeric-typed variables with numeric operators.
+- Do not add a prompt row to an Extract Variable node that points at the same place as Else. It costs a classification call and decides nothing.
 
 ## Edge ids
 
-Every edge has an id that must be unique across the whole flow. The dashboard assigns them. If you build flows by API, give each edge a readable, unique id and never reuse one.
+Every edge has an id that must be unique across the whole flow, including the Else, always and skip edges. The editor assigns ids. If you build flows by API, give each edge a readable unique id and never reuse one; a missing id fails with "The edge field is required".
+
+## FAQ
+
+**Why did my prompt transition not fire when the caller clearly matched it?**
+Check whether the node also has an always or skip transition (then prompt rows never run), whether the model answered in speech instead (common on static nodes with a plain "yes"), and whether the caller kept talking after the match was decided. Move the routing to a Logic Split after an always transition.
+
+**Why did the flow take Else when my equation should have matched?**
+The variable was never set on that path, a numeric comparison had a non-numeric side (a colon in a time, a string-typed variable), or the comparison used contains. Log the value by having a static node read it back once while testing.
+
+**Can a node have both an Else and a Skip User Response?**
+No. The API rejects the combination. A node whose only exit is a skip transition is complete.
+
+**Can I put an equation on an Else, always or skip transition?**
+No. Those conditions are fixed; equations belong on ordinary transitions.
+
+**How do I transition from any node?**
+Make the destination a global node. For an exit that must exist from everywhere, such as "caller asks for a person", that is the right tool; for a transfer, keep an hours check in front of it instead.
+
+## Related
+
+- [Nodes](/conversation-flows/nodes)
+- [Variables](/conversation-flows/variables)
+- [Patterns](/conversation-flows/patterns)

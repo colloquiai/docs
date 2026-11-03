@@ -3,19 +3,97 @@ title: "Press IVR"
 description: "Navigate a phone menu on the caller's behalf."
 ---
 
-Press IVR lets the agent press keys on a touch-tone menu, for example to reach the right department when transferring into a phone system that answers with "press 1 for sales".
+Press IVR lets the agent press keypad digits (DTMF tones) into a touch-tone menu, for example when the agent places a call that is answered by "press 1 for sales, press 2 for accounts", or when a system asks for an extension or a reference number. It is a tool the model calls with the digits to press; there is no node version.
+
+<Note>
+Press IVR is configured by API only. It has no dialog in the dashboard: an agent that has one shows it in the **Functions** list, where it can be deleted but not edited. Add or change it with [Update Agent](/api-reference/agents/update).
+</Note>
+
+## How it works
+
+The model calls the tool with a string of digits. The runtime then:
+
+1. **Sends each character in turn.** Digits `0` to `9`, `*` and `#` are sent as keypad tones, one every 0.2 seconds. Any other character is skipped with a warning, so `1a2` presses 1 then 2.
+2. **Pauses.** After the last tone the agent waits for **Pause detection delay** (2,000 ms when not set) before carrying on. This gives the menu time to react and stops the tones themselves from being picked up as speech.
+3. **Reports back.** The tool returns the digits it sent, and the model continues listening to whatever the menu says next.
+
+The model decides when to press, and what, from your description and from what it hears the menu say. The runtime does not detect the menu or wait for silence on its own; the only timing control is the pause after pressing.
 
 ## Settings
 
-| Setting | What it does |
-|---|---|
-| Tool Name, Description | When and how the agent should use the keypad. Describe the menu if you know it, for example "press 2 for accounts, then 1 for existing customers". |
-| Pause detection delay | How long a silence must last, between 1 and 6 seconds, before the agent decides the menu has finished speaking and it is time to press. |
+| Setting | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| Tool name | `name` | Letters, digits, `_`, `-`; max 255 | none | Required |
+| Description | `description` | Up to 1,024 characters | Built-in text | What the menu looks like and how to navigate it |
+| Pause detection delay | `pause_detection_delay_ms` | 1,000 to 6,000 | 2,000 | Wait after the last digit, in milliseconds |
 
-## How it behaves
-
-The agent listens to the menu, waits for the pause, and presses the digit its description or the menu prompt calls for. Menus that read options quickly need a shorter pause delay; menus with long pauses between options need a longer one, or the agent will press before hearing every option.
+When the description is empty, the model is told the tool presses keypad digits to navigate menus or enter extension numbers. In a single-prompt agent, the tool is also listed in the generated actions section of the prompt with that same wording.
 
 ## Where it is used
 
-Press IVR is a tool, not a node. Attach it to a single-prompt agent, or to a Conversation node in a flow, alongside a Transfer Call tool whose destination answers with a menu.
+Attach Press IVR to a single-prompt agent's `llm_config.tools`, or to a Sub Agent node's `llm_config.tools` in a flow. It usually sits alongside a [Transfer Call](/build-an-agent/tools/transfer-call) tool whose destination answers with a menu, or on an outbound agent that calls into a phone system. Inbound agents answering the public rarely need it.
+
+## By API
+
+```json
+{
+  "type": "press_ivr",
+  "name": "press_keys",
+  "description": "Press keypad digits to navigate the phone menu. The menu offers 1 for sales, 2 for accounts and 3 for support. Wait until the options have been read before pressing.",
+  "pause_detection_delay_ms": 2500
+}
+```
+
+Send this as one entry of the `llm_config.tools` array. The array is replaced on update, so include the agent's other tools in the same request.
+
+## Prompt examples
+
+The description does most of the work. If you know the menu, write it out:
+
+```text
+Press keypad digits to navigate an automated phone menu. Listen to the full
+list of options before pressing anything. This menu is: 1 for sales, 2 for
+accounts, 3 for support, 0 for reception. Press the option that matches the
+reason for the call. If the menu asks for an extension, press the extension
+digits followed by #. Never press anything while a human is speaking.
+```
+
+If you do not know the menu, give rules instead:
+
+```text
+When an automated menu reads options, wait until it finishes, then press the
+single digit for the option that best matches our purpose. If no option
+fits, press 0 or wait for an operator. Do not press digits more than once
+per menu level unless the menu repeats because nothing was recognised.
+```
+
+Add interaction rules to the agent's prompt so the model treats menus and people differently:
+
+```text
+MENUS: if you hear a recorded voice listing numbered options, use the
+press_keys tool. PEOPLE: if a person answers, speak normally and never
+press digits.
+```
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="The agent presses too early">
+    The model is pressing while the options are still being read. Add "listen to the full list of options before pressing" to the description and, if you know the menu, write the options out so the model does not need to hear them all first. The pause delay does not help here; it only applies after the digits are sent.
+  </Accordion>
+  <Accordion title="The agent presses the right digit but the menu does not respond">
+    Raise **Pause detection delay** towards 6,000 ms so the agent waits longer before reacting to what it hears next, and check whether the menu wants a terminator: many extension prompts expect `#` after the digits.
+  </Accordion>
+  <Accordion title="Which keys can it press?">
+    `0` to `9`, `*` and `#`. Letters and other characters are ignored. Several keys can be sent in one call, for example `1234#`, and are pressed 0.2 seconds apart.
+  </Accordion>
+  <Accordion title="Why is there no Press IVR node or dialog?">
+    Pressing digits is a response to what the agent hears, so it needs the model listening and deciding. That is a tool, not a flow step. It is currently added by API; the agent's other tools are unaffected.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Tools overview](/build-an-agent/tools/overview)
+- [Transfer call](/build-an-agent/tools/transfer-call)
+- [Update Agent](/api-reference/agents/update)

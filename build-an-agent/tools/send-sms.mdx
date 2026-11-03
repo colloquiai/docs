@@ -3,38 +3,131 @@ title: "Send SMS"
 description: "Text the caller, or someone else, during the call."
 ---
 
-Send SMS sends a text message mid-call. Typical uses are sending an address, a booking reference, a link, or a confirmation to the caller, and notifying a staff member about a message the caller left.
+Send SMS sends a text message mid-call. Typical uses are texting the caller an address, a booking reference or a link, and notifying a staff member about a message a caller left. The recipient is fixed in the tool, never chosen by the model, so the agent cannot text a number it misheard.
+
+## How it works
+
+In a single-prompt agent or Sub Agent node the model calls the tool when your description says to. In a flow, a Send SMS node sends as soon as the flow reaches it. Either way the runtime:
+
+1. **Composes the message.** With **Content Type** set to **Static**, the **Content** text is used as written. With **Prompt**, the model writes the message from your **Content** instructions. In a flow node the composing happens in a silent, separate model call, so nothing is spoken.
+2. **Substitutes variables.** Any `{{variable}}` in the message is replaced with its current value. A variable that was never set stays as its placeholder text and the message is still sent.
+3. **Resolves the recipient.** **Caller's number** uses the number the caller is calling from. **Different number** uses the **Send To Number**, which may itself contain variables; if one of those is unset, the send fails rather than going to a malformed number.
+4. **Checks the number can receive SMS.** Landlines and invalid numbers are rejected before anything is sent. Numbers that could be either (some countries do not distinguish) are allowed.
+5. **Sends** and reports `sms_sent` or an error back to the model, with an instruction about what to tell the caller when it failed. The model then continues the conversation; the tool says nothing itself.
+
+A send waits at most 15 seconds for the SMS provider before reporting an error.
 
 ## Settings
 
-| Setting | What it does |
-|---|---|
-| Tool Name, Description | When to send. |
-| Send to | **Caller's number** texts the number the caller is calling from. **Different number** texts the **Send To Number** you enter. |
-| Content Type | **Static** sends your text exactly. **Prompt** has the model compose the message from your description. |
-| Content | The message, or the description of it. |
+Fields in the order the **Send SMS** dialog shows them.
 
-Numbers must be in international format.
+| Setting | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Tool Name** | `name` | Letters, digits, `_`, `-`; max 255 | none | Hidden on a Send SMS node |
+| **Description** | `description` | Up to 1,024 characters | none | When to send |
+| **Content Type** | `content_type` | **Static**, **Prompt** | `static` | How the message is produced |
+| **Content** | `content` | Required | none | The message, or the instructions for writing it |
+| **Send to** | `send_to` | **Caller's number**, **Different number** | `caller_number` | |
+| **Send To Number** | `send_to_number` | Mobile number in E.164 | none | Required for **Different number**; landlines are rejected on save |
+
+The helper text under **Send To Number** reads: "Must be a mobile number in E.164 format, e.g. +61400000000."
+
+## Setting up the tool
+
+<Steps>
+  <Step title="Add it">
+    Single-prompt agent: expand **Functions**, click **Add**, then **Send SMS**. Flow: drag a **Send SMS** node onto the canvas, or use **Node Functions** on a Sub Agent node.
+  </Step>
+  <Step title="Describe when to send">
+    In **Description**, give the trigger and the limit, for example "when the caller asks for the address, once per call". The model also sees a note that the recipient is already known, so it will not ask for a number.
+  </Step>
+  <Step title="Write the content">
+    Choose **Static** and type the exact message, with variables where needed, or choose **Prompt** and describe what the message must contain.
+  </Step>
+  <Step title="Choose the recipient">
+    Leave **Send to** on **Caller's number** to text the caller. For a staff notification choose **Different number** and enter the mobile in **Send To Number**.
+  </Step>
+  <Step title="Save">
+    Click **Add Tool** or **Apply**, then save the agent.
+  </Step>
+</Steps>
 
 ## Composing messages
 
-Static content can include variables, so a confirmation can be personalised without letting the model write it:
+**Static** content is the safe default. It can carry variables, so a confirmation is personalised without the model writing it:
 
 ```text
 Hi, your appointment with Harbour Dental is confirmed for {{appointment_time}}.
 Reply to this message if you need to change it.
 ```
 
-Prompt content is useful when the message should summarise the conversation, such as a note to staff. Tell the model what to include and keep it short; SMS is not the place for a paragraph.
+**Prompt** content suits messages that summarise the call, such as a note to staff. The model is told to write the body; tell it what to include and how long it may be:
 
-## Confirm before sending
+```text
+Write a message for the on-call plumber. Include the caller's name, the
+suburb, the problem in one sentence and the number to call back on, which
+is {{user_number}}. Plain text, under 300 characters, no greeting.
+```
 
-If the message is going to the caller, there is no need to ask. If the content depends on something the caller said, confirm the detail first, especially phone numbers and email addresses, and only then send.
+Variables are substituted in prompt-written messages too, so you can mix the two: let the model write the summary while a fixed value like `{{user_number}}` is filled in exactly.
+
+## Confirm before you send
+
+When the message goes to the caller, there is nothing to confirm. When its content depends on something the caller said, such as an email address or a time, have the agent confirm that detail first and only then send. Put the order in the description:
+
+```text
+Send the booking confirmation by SMS after the caller has confirmed the
+appointment time. Do not send before they confirm.
+```
 
 ## Billing
 
-SMS is charged per message on the agent's bundle. See [Billing](/workspace/billing).
+Each message sent is metered on the agent's bundle in addition to call minutes. Long messages that split into several SMS segments cost more than one short one, so keep texts brief. See [Billing](/workspace/billing).
 
 ## In a conversation flow
 
-Send SMS is a node. Put it after the node that collects or confirms whatever the message depends on, so every variable it references has a value. A variable that was never set is sent as its literal placeholder text.
+Send SMS is a node. It takes the same settings minus the tool name and description, sends on entry, and then routes: equation conditions on its edges are evaluated first, then a silent routing call picks among prompt-conditioned edges using the send result, and the else edge is the fallback. Give the else edge a destination that does not claim the text was sent. The next node is told the result, so a conversation node after it can say "I've just texted you that" or "I wasn't able to send that" truthfully.
+
+Place the node after the node that collects or confirms whatever the message depends on, so every variable it references has a value. See [Nodes](/conversation-flows/nodes).
+
+## By API
+
+```json
+{
+  "type": "send_sms",
+  "name": "sms_address",
+  "description": "Send our address when the caller asks for it or for directions. Once per call.",
+  "content_type": "static",
+  "content": "Harbour Dental: 12 Wharf St, Manly NSW 2095. Parking is behind the building.",
+  "send_to": "caller_number"
+}
+```
+
+For a staff notification set `"send_to": "different_number"` and `"send_to_number": "+61400000000"`. On a flow node the fields sit under `config` with `"type": "send_sms"`. See [Update Agent](/api-reference/agents/update).
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="The message was never received">
+    Check the result in [Call history](/operate/call-history). A `recipient_not_sms_capable` error means the number is a landline or invalid: a caller phoning from a desk phone cannot be texted. A missing-recipient error means **Send To Number** contained a variable that was never set. An error with an HTTP status came from the SMS provider; the message text and recipient are in the result.
+  </Accordion>
+  <Accordion title="The agent asked the caller for their mobile number">
+    It does not need to; the caller's number is already known. The generated prompt tells the model this, but a prompt of your own that says "collect the caller's phone number" overrides it. Remove that instruction, or make it "ask whether the number they are calling from is the best one".
+  </Accordion>
+  <Accordion title="The text contained a literal placeholder">
+    A `{{variable}}` in the content was not set before the tool ran. In a flow, move the Send SMS node after the Extract Variable node that sets it, or branch on `exists` first. In a single-prompt agent, extract the value before telling the model to send.
+  </Accordion>
+  <Accordion title="Can the caller reply?">
+    Replies are not delivered to the agent or the call. Treat SMS as one-way and put a phone number or link in the message if you want a response.
+  </Accordion>
+  <Accordion title="Can I send to a landline or an overseas number?">
+    Landlines are rejected, both when you save a **Send To Number** and at send time for the caller's number. Numbers outside Australia are accepted if they are valid mobiles in E.164 format.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Tools overview](/build-an-agent/tools/overview)
+- [Extract variable](/build-an-agent/tools/extract-dynamic-variable) for the values a message depends on
+- [Variables](/conversation-flows/variables)
+- [Billing](/workspace/billing)

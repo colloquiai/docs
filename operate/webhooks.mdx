@@ -3,11 +3,45 @@ title: "Webhooks"
 description: "Register an endpoint to receive events from your workspace."
 ---
 
-A webhook is an HTTPS endpoint you register to receive events from Colloqui as they happen, so your own systems can react without polling the API.
+A webhook is an HTTPS endpoint you register so that Colloqui can send your systems events as they happen, instead of your systems polling the API. Registration is available now through the API: you store the URL, a fixed payload to merge into every delivery, and the retry and timeout policy you want. Event delivery to registered endpoints is being rolled out, and each event type is documented here as it ships. Until an event is listed on this page, do not expect it to arrive.
+
+If you need call outcomes in your own system today, poll [List Call Histories](/api-reference/call-history/list) with a date range, or have the agent push data during the call with a [Custom Function](/build-an-agent/tools/custom-function), which calls your endpoint directly with whatever the agent has collected.
+
+## How it works
+
+1. You create a webhook in your workspace with a `url` and, optionally, a `payload`, `check_https`, `logging_enabled`, `retries` and `timeout`. One workspace can hold several webhooks.
+2. The webhook is bound to the workspace it was created in. It is listed, updated and deleted through the same workspace's API key.
+3. When an event ships for delivery, Colloqui sends it to every registered endpoint in the workspace as an HTTP POST with a JSON body, merging your fixed `payload` fields into each delivery. Your endpoint acknowledges with any 2xx status.
+4. A non-2xx response or no response within `timeout` seconds counts as a failed attempt. Colloqui retries up to `retries` more times.
+
+## Settings
+
+| Field | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| Endpoint URL | `url` | valid URL | required | Use HTTPS. |
+| Fixed payload | `payload` | JSON object | none | Merged into every delivery, for example a shared identifier or a routing hint for your side. Nested objects are allowed. |
+| Verify certificate | `check_https` | `true`, `false` | `false` | When `true`, deliveries require a valid certificate on your endpoint. Turn it on for production. |
+| Delivery logging | `logging_enabled` | `true`, `false` | `false` | Keeps a record of deliveries for troubleshooting. |
+| Retries | `retries` | integer, 0 to 10 | 2 | Additional attempts after the first failure. |
+| Timeout | `timeout` | integer seconds, 1 to 1,800 | 5 | How long Colloqui waits for your 2xx. |
+
+The object also carries `id`, `workspace_id`, `user_id` (who created it), `created_at` and `updated_at`.
+
+There is no dashboard page for webhooks; they are managed entirely through the API. Any member of the workspace with an API key can list and create them, and a webhook can only be read or changed from the workspace that owns it.
 
 ## Registering an endpoint
 
-Webhooks are managed by API. Create one with [Create Webhook](/api-reference/webhooks/create):
+<Steps>
+  <Step title="Create an API key">
+    In **Settings → API Keys**, click **Create API Key**. API keys are created by workspace owners and admins and are bound to the workspace that is current when they are created. See [Authentication](/get-started/authentication).
+  </Step>
+  <Step title="Create the webhook">
+    Send a `POST /api/v1/webhooks` with at least the `url`. Include `"check_https": true` for a production endpoint.
+  </Step>
+  <Step title="Record the id">
+    The response includes the webhook `id`. Use it to update or delete the webhook later.
+  </Step>
+</Steps>
 
 ```bash
 curl -X POST https://dashboard.colloqui.ai/api/v1/webhooks \
@@ -16,29 +50,78 @@ curl -X POST https://dashboard.colloqui.ai/api/v1/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://example.com/colloqui/events",
+    "payload": { "source": "colloqui", "tenant": "acme-au" },
     "check_https": true,
+    "logging_enabled": true,
     "retries": 3,
     "timeout": 10
   }'
 ```
 
-| Field | What it does |
-|---|---|
-| `url` | Where events are sent. Required. |
-| `payload` | Extra fields to include with every delivery, for example a shared identifier for your side. |
-| `check_https` | Require a valid HTTPS certificate on your endpoint. Recommended. |
-| `logging_enabled` | Keep a log of deliveries for troubleshooting. |
-| `retries` | How many times to retry a failed delivery, 0 to 10. Default 2. |
-| `timeout` | Seconds to wait for your endpoint to respond, 1 to 1800. Default 5. |
+Response:
 
-Deliveries are HTTP POST requests with a JSON body. Respond with any 2xx status to acknowledge. A non-2xx response or a timeout counts as a failure and is retried.
+```json
+{
+  "data": {
+    "id": "01m5twykj59nn94yxad1j4pdkb",
+    "url": "https://example.com/colloqui/events",
+    "payload": { "source": "colloqui", "tenant": "acme-au" },
+    "check_https": true,
+    "logging_enabled": true,
+    "retries": 3,
+    "timeout": 10,
+    "workspace_id": "01m5twykhwptgqc5mx79sqx0cv",
+    "user_id": "01m5twykhwptgqc5mx79sqx0ab",
+    "created_at": "2026-10-26T01:24:42+00:00",
+    "updated_at": "2026-10-26T01:24:42+00:00"
+  }
+}
+```
 
-## Handling deliveries
-
-- Return 2xx quickly and do the work afterwards. Your timeout setting bounds how long Colloqui waits.
-- Expect retries. Treat deliveries as at-least-once and make your handler idempotent on the event's id.
-- Route on the event type rather than assuming a fixed set, so new events do not break your handler.
+A `url` that is not a valid URL, `retries` outside 0 to 10, or `timeout` outside 1 to 1,800 returns a 422 with the field named in `errors`.
 
 ## Managing webhooks
 
-List, update and delete endpoints with the [Webhooks](/api-reference/webhooks/list) endpoints.
+| Action | Endpoint |
+|---|---|
+| List | [List Webhooks](/api-reference/webhooks/list): `GET /api/v1/webhooks` (cursor-paginated, `per_page` 1 to 100) |
+| Create | [Create Webhook](/api-reference/webhooks/create): `POST /api/v1/webhooks` |
+| Read | [Show Webhook](/api-reference/webhooks/show): `GET /api/v1/webhooks/{id}` |
+| Update | [Update Webhook](/api-reference/webhooks/update): `PUT /api/v1/webhooks/{id}` |
+| Delete | [Delete Webhook](/api-reference/webhooks/delete): `DELETE /api/v1/webhooks/{id}` |
+
+Update sends the full set of fields you want to keep; `url` is required on every update. Deleting a webhook stops any future deliveries to it immediately.
+
+## Delivery format
+
+Deliveries are HTTP POST requests with a JSON body and `Content-Type: application/json`. The body carries the event's own fields, including a type and a unique event id, plus every key from your webhook's `payload` merged in at the top level. The exact event names and field maps are published with each event as it ships, so build the handler to read the type first and to tolerate fields it does not know.
+
+Respond with any 2xx status to acknowledge. No request signature is applied yet; when one is introduced it will be documented here together with the header name and verification steps. Until then, treat the fixed `payload` as your shared secret: put a value only you know in it and reject deliveries that do not carry it.
+
+## Handling deliveries
+
+- **Return 2xx fast and do the work afterwards.** Your `timeout` bounds how long Colloqui waits. Queue the event and acknowledge; do not call other systems inside the request.
+- **Expect at-least-once delivery.** A timeout on your side after you have processed the event leads to a retry. Make your handler idempotent on the event's unique id.
+- **Route on the event type.** Switch on the event type and ignore types you do not handle, so new events do not break the handler.
+- **Keep `check_https` on in production.** It protects you from a misconfigured or expired certificate silently redirecting deliveries.
+- **Use `payload` for routing, not secrets you cannot rotate.** It is stored with the webhook and returned by `GET`, so anyone with an API key in the workspace can read it.
+
+## Events
+
+No event types are delivered to registered webhooks yet. This section lists each event with its field map as it ships; subscribe to the [changelog](/changelog/index) to be told when that happens. The platform already records the information the first events will carry, namely call start and end, call analysis, recording readiness and SMS delivery, all of which are available today through [Call History](/operate/call-history) and its API.
+
+## Troubleshooting
+
+**I registered a webhook and nothing arrives.** That is expected until the first event type is listed above. Registration today prepares the endpoint; it does not start a stream.
+
+**422 on create.** Check the three bounded fields: `retries` 0 to 10, `timeout` 1 to 1,800, and `url` a complete URL including the scheme.
+
+**404 on `GET /api/v1/webhooks/{id}`.** The webhook belongs to a different workspace from the API key. Keys are bound to one workspace; list with the key that created it.
+
+**I want to be told when a call ends, now.** Poll `GET /api/v1/call-histories?date_from=<today>` and look for rows with `session_status` of `ended`; the analysis arrives a few minutes after the call. Or have the agent call a Custom Function as its last step so your system hears from the call itself.
+
+## Related
+
+- [Call history](/operate/call-history): the data that webhook events will carry
+- [Custom function](/build-an-agent/tools/custom-function): push data to your systems during a call
+- [Authentication](/get-started/authentication)

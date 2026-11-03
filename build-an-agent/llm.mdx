@@ -3,40 +3,173 @@ title: "Language model"
 description: "Choose the model that drives the conversation."
 ---
 
-The language model reads the transcript, the prompt and any tool results, and decides what the agent says and does next. Open **Configure LLM** on the agent page to change it.
+The language model reads the transcript, your prompt, any retrieved knowledge and any tool results, and decides what the agent says and does next. It is the part of the agent that follows instructions, so it is also the part most prompt problems trace back to. Open **Configure LLM** on the agent page to change it. A support line that answers questions from a knowledge base, for example, usually runs well on the default GPT-4.1; a flow that only collects a name and a callback number can run on a smaller, faster model.
+
+## How it works
+
+On every caller turn the agent:
+
+1. Assembles the system prompt: a short built-in voice-output policy, then your prompt with variables filled in, then a time-awareness section when the agent has a timezone, then (for a single-prompt agent) a list of the tools it can call, or (for a conversation flow) the current node's instruction. See [Prompt](/build-an-agent/prompt) for the exact order.
+2. Adds retrieved knowledge-base passages as a system message immediately before the caller's latest message, when a knowledge base is linked and the message looks like a question. See [Knowledge base tuning](/build-an-agent/knowledge-base-tuning).
+3. Sends the conversation to the model and streams the reply to text-to-speech as it arrives. The agent starts generating on the interim transcript before the caller has quite finished, and discards that work if the caller keeps talking.
+4. Executes any tool call the model makes (end call, transfer, custom function, variable extraction, flow transitions) and, where the tool returns a result, lets the model speak again.
+
+Model output is checked before it is spoken. Raw control tokens that some models leak are stripped, and if output guardrails are on, each chunk of the reply is validated first. See [Guardrails](/build-an-agent/guardrails).
 
 ## Providers and models
 
-| Provider | Models |
-|---|---|
-| Azure OpenAI | GPT-4.1, GPT-4.1 mini |
-| AWS Bedrock | Claude Opus 4.6, Sonnet 4.6, Opus 4.5, Sonnet 4.5, Haiku 4.5, Opus 4.1, Sonnet 4, Claude 3.5 Haiku, Claude 3 Haiku |
-| Mistral | Mistral Large, Medium and Small, Magistral Medium and Small, Ministral 3 in 14B, 8B and 3B |
-| Groq | Llama 3.3 70B, Llama 3.1 8B, Llama 4 Scout, GPT-OSS 120B and 20B, Qwen3 32B, Groq Compound and Compound Mini |
-| Custom | Any OpenAI-compatible endpoint you host or subscribe to |
+The dashboard lists the providers and models enabled for your deployment. As shipped, these are:
 
-The dashboard lists exactly what is available to your workspace, which may be a subset of the above.
+| Provider (dashboard label) | API `provider` | Models | Notes |
+|---|---|---|---|
+| OpenAI | `azure` | `gpt-4.1`, `gpt-4.1-mini` | Default. Hosted by Colloqui; no key needed. |
+| Google | `google` | `gemma-4-31B-it` | Hosted by Colloqui; no key needed. |
+| Custom | `custom` | Any model name your endpoint accepts | Your own OpenAI-compatible endpoint. You supply the base URL and key. |
 
-## Choosing
+OpenAI and Google models run through Colloqui's hosted gateway, so you never enter a provider key. Choosing **Custom** points the agent at an endpoint you run or subscribe to.
 
-New agents start on GPT-4.1, which is a good default for most calls. Move only for a reason:
+<Note>
+The model list is data, not a fixed enum. A model name sent by API must match a name in the list for that provider exactly (for example `gpt-4.1-mini`, not `GPT-4.1 Mini`), or the save is rejected with "The selected LLM model is invalid." Copy names from the dashboard or from an existing agent.
+</Note>
 
-- **Latency.** Smaller models such as GPT-4.1 mini, Claude Haiku or the Groq-hosted models respond faster, which callers notice as a snappier agent. They follow long prompts less reliably, so test a prompt change on the smaller model before shipping it.
-- **Instruction following.** For a conversation flow with many rules per node, the larger models are more dependable. A flow that works on GPT-4.1 may misbehave on an 8B model.
-- **Data residency.** Bedrock lets you choose an AWS region.
+## Settings
+
+All of these live under `llm_config` on the agent.
+
+| Setting (UI label) | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Provider** | `provider` | `azure`, `google`, `custom` | `azure` | Required. |
+| **Model** | `model` | A model name from the provider's list, or free text for Custom | `gpt-4.1` | Required. |
+| **Temperature** | `temperature` | 0 to 1, step 0.1 | 0.3 | Shown for every provider. Required for Custom. |
+| **Base URL** | `base_url` | URL | none | Custom only. Required. |
+| **API Key** | `api_key` | string | none | Custom only. Optional; leave blank for an endpoint without auth. |
+| (API only) | `deployment`, `endpoint`, `api_version` | strings | none | Only meaningful for an Azure OpenAI resource you point the agent at. Not shown in the dashboard. |
+| (API only) | `region`, `max_tokens` | string, integer | none | Required if a deployment enables the `bedrock_claude` provider. Not shown in the dashboard. |
+
+`llm_config` also carries `knowledge_base_ids` and `tools`, which are documented on their own pages.
+
+## Choosing a model
+
+New agents start on GPT-4.1, which is the right default for most calls. Move only for a reason:
+
+- **Latency.** GPT-4.1 mini and Gemma 4 respond faster, which callers hear as a snappier agent. Smaller models follow long prompts less reliably, so re-test every prompt rule when you move down.
+- **Instruction following.** For a conversation flow with many rules per node, or a prompt with several numbered rules, GPT-4.1 is the more dependable choice. A flow that behaves on GPT-4.1 can start padding, re-asking questions or skipping a transition on a smaller model.
+- **Tool use.** Every model offered supports structured tool calls, which is what transitions, transfers and custom functions rely on. If you bring your own model through Custom, it must support OpenAI-style function calling or the agent cannot act.
+- **Cost.** Smaller models are cheaper per turn. For a high-volume line that mostly takes messages, test GPT-4.1 mini first.
 
 ## Temperature
 
-Temperature controls how varied the wording is, from 0 to 1. New agents use 0.3. Lower values make the agent more predictable and are better for anything scripted. Values above 0.7 make it chattier and less reliable at following rules. Bedrock models also take a maximum token limit and a region.
+Temperature controls how varied the wording is. New agents use 0.3.
+
+| Value | Effect | Use for |
+|---|---|---|
+| 0 to 0.2 | Near-deterministic. The same question gets almost the same answer every time. | Scripted confirmations, read-backs, compliance wording |
+| 0.3 to 0.5 | Natural variation without drifting from the prompt. | Most agents |
+| 0.6 to 1.0 | Chattier, more creative, less reliable at following rules and calling tools. | Rarely; conversational agents where exact wording does not matter |
+
+If the agent is paraphrasing a static-sounding line differently on every call and that bothers you, lower the temperature before rewriting the prompt. If it ignores a rule, temperature is not the fix; see [Prompt engineering](/core-concepts/prompt-engineering).
+
+## Setting up the model
+
+<Steps>
+  <Step title="Open the dialog">
+    On the agent page, click the model button in the header (it shows the current provider and model, for example "OpenAI / gpt-4.1"). The **Configure LLM** dialog opens.
+  </Step>
+  <Step title="Choose a provider">
+    Pick from **Provider**. **Custom** is always last in the list. Changing provider clears the model, so pick the model next.
+  </Step>
+  <Step title="Choose a model">
+    For OpenAI or Google, search in **Model**. For Custom, type the model name your endpoint expects.
+  </Step>
+  <Step title="Set temperature and provider fields">
+    Drag **Temperature**. For Custom, fill in **Base URL** and **API Key**.
+  </Step>
+  <Step title="Save">
+    Click **Okay**, then save the agent. If the API rejects a field, the dialog reopens with the error under that field.
+  </Step>
+</Steps>
 
 ## Custom provider
 
-Choose **Custom** to point the agent at your own OpenAI-compatible endpoint. You supply the base URL, an API key and the model name. Keys you enter here are stored with the agent and visible to workspace members who can view it, so use a key scoped to this purpose.
+Choose **Custom** to use any endpoint that speaks the OpenAI chat-completions protocol: a model you host, a gateway in your own cloud, or a third-party API. The agent sends chat completions to **Base URL** with **API Key** as a bearer token, using the **Model** name and **Temperature** you set. It asks for streaming responses and function calling, and requests low reasoning effort where the endpoint supports it.
+
+Two things to know:
+
+- The key is stored with the agent and returned by the API to anyone who can read the agent. Use a key scoped to this purpose and rotate it if you share agent exports.
+- A custom base URL and key can be set through the API but not cleared through it: omitting the fields on an update keeps the stored values, and sending `null` is rejected. To remove an override, switch the agent back to a hosted provider in the dashboard.
 
 ## Per-node models in a flow
 
-In a conversation flow, each node can override the agent's model. A common arrangement is a fast model on nodes that collect details and a larger one on the node that answers open questions. See [Nodes](/conversation-flows/nodes).
+In a conversation flow, every node inherits the agent's model unless you override it. Select a node, open **Node Settings** and find **Language Model**. The badge reads **Inherited** ("Runs on the agent's LLM.") until you configure one; after you save a provider and model it reads **Override**, and a **Reset** button returns the node to the agent's model.
+
+A common arrangement is a fast model on nodes that collect details and GPT-4.1 on the node that answers open questions. Two cautions:
+
+- Each node builds its own system prompt, so the first turn on every node you visit pays a cold-start cost with the model. Switching models between nodes adds to that.
+- The override carries only provider, model and temperature (plus Custom fields). The node's knowledge bases and tools are separate settings on the same node.
+
+By API, a node override is the node's `llm_config` with a concrete `provider` and `model`. Sending `"inherit"` for both, or omitting them, means inherit.
+
+## When the model fails
+
+The agent does not end the call because a model request failed.
+
+- If the hosted OpenAI provider refuses a message under its content policy, the agent says "I'm sorry, I'm not able to help with that. Is there something else I can help you with, or someone I can connect you with?" and the call continues.
+- For any other error (timeout, overloaded endpoint, bad custom URL), that turn produces no reply. The caller hears silence, and the silence ladder described in [Voice behavior](/build-an-agent/voice-behavior) takes over: a "still with me?" nudge, a reprompt, and eventually a polite hang-up if nothing recovers. The next caller turn triggers a fresh request.
+- If a model leaks raw control tokens into its reply, the reply is suppressed rather than spoken.
+
+There is no automatic fallback to a second model. If your custom endpoint is unreliable, the agent is unreliable.
 
 ## By API
 
-The model lives under `llm_config` on the agent. Provider and model names are validated against what your workspace can use, so copy the values from an existing agent rather than guessing. See [Update Agent](/api-reference/agents/update).
+Set the model when creating or updating an agent. `provider` is only required on create.
+
+```bash
+curl -X PUT https://dashboard.colloqui.ai/api/v1/agents/{agent_id} \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "llm_config": {
+      "provider": "azure",
+      "model": "gpt-4.1-mini",
+      "temperature": 0.3
+    }
+  }'
+```
+
+A custom provider:
+
+```json
+{
+  "llm_config": {
+    "provider": "custom",
+    "model": "my-model-name",
+    "base_url": "https://llm.example.com/v1",
+    "api_key": "sk-...",
+    "temperature": 0.2
+  }
+}
+```
+
+See [Update Agent](/api-reference/agents/update). Read the agent back after the update to confirm what was stored.
+
+## Troubleshooting
+
+**"The selected LLM provider is invalid" or "The selected LLM model is invalid".** The value is not in your deployment's list. Open **Configure LLM** in the dashboard to see what is available, and copy the exact model name.
+
+**"The llm config.base url field is required".** The provider is `custom` and no base URL was sent.
+
+**The agent follows the prompt on GPT-4.1 but not on a smaller model.** Expected. Smaller models need shorter rules, capitals on the rules that matter, and a sample conversation per scenario. See [Prompt engineering](/core-concepts/prompt-engineering).
+
+**The agent reads out a list or a table.** The built-in voice-output policy tells the model not to, but a model handed a large structured tool result can still do it. Ask the custom function to return less, or tell the node what to say about the result.
+
+**The agent went quiet for several seconds and then said "Hello, still with me?"** A model request failed or timed out for that turn. Check the call in [Call History](/operate/call-history). If it happens on a custom provider, test the endpoint's latency directly.
+
+**A node override does not seem to apply.** Check the badge on the node reads **Override**. If the override's provider or model fails to initialise, the node silently runs on the agent's model.
+
+## Related
+
+- [Prompt](/build-an-agent/prompt)
+- [Knowledge base tuning](/build-an-agent/knowledge-base-tuning)
+- [Guardrails](/build-an-agent/guardrails)
+- [Nodes](/conversation-flows/nodes)

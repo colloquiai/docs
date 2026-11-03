@@ -3,29 +3,171 @@ title: "Versioning and publishing"
 description: "Drafts, published versions, descriptions and restores."
 ---
 
-Every agent has one draft and a history of published versions. The draft is what you edit. The latest published version is what answers calls.
+Every agent has one draft and a history of published versions. The draft is what you edit in the dashboard or through the API. The latest published version is what answers calls. Publishing copies the draft into a new numbered version and makes it live on every number assigned to the agent; until then, your edits stay in the draft and callers keep getting the previous version. A typical cycle: edit the greeting, save, make a test call to confirm the draft is right, then publish with a description such as "Shorter greeting, transfer to accounts added".
 
-## Publishing
+## How it works
 
-Click **Publish** on the agent page, enter a short description of what changed, and confirm. Colloqui snapshots the draft as the next numbered version and makes it live on every number assigned to the agent. The description appears in the version history and is the only record of why a version exists, so write one every time: "Shorter greeting, transfer to accounts added" is enough.
+An agent is always in one of two states:
 
-Two rules:
+| Status | Meaning |
+|---|---|
+| `draft` | The draft differs from what is live, or nothing has been published yet. |
+| `published` | The draft and the live version are the same. |
 
-- An agent must have at least one number assigned before it can be published.
-- Assigning a number to an agent publishes it automatically, with a description that says which number was assigned.
+The mechanics, in order:
+
+1. **Save** writes the draft. Any save, including a one-field change, moves the agent to `draft` status. This is only a label on the draft: the live version keeps answering calls until you publish or the agent loses its last number.
+2. **Publish** snapshots the whole draft as version `N+1`, where `N` is the highest version number the agent has ever had, marks the agent `published`, and pushes that version to the call runtime. The next call to any of the agent's numbers runs the new version.
+3. **History** keeps the five most recent versions. When a sixth is published, the oldest is deleted. Version numbers are never reused, so an agent whose history shows versions 9 to 13 has published thirteen times.
+4. **Restore** copies a stored version back into the draft. It is a save, not a publish, so the agent goes to `draft` and the live version is untouched until you publish again.
+
+What a version contains is the complete agent configuration at the moment of publishing: name and timezone, call settings, the language model settings and every tool, the prompt and welcome message, speech recognition and voice settings, linked knowledge bases, guardrails, and for a conversation flow the full set of nodes, edges and their positions on the canvas. Numbers are recorded for reference but are not part of what a restore writes back, so restoring an old version never changes which numbers point at the agent.
+
+## Settings
+
+| Setting (UI label) | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Description** on Publish Agent | `description` | text, max 1,000 characters | empty | Shown in the version history. The only record of why a version exists. |
+| Version number | `version` | integer, 1 upwards | none until first publish | Read-only. `null` on the draft while the agent is in `draft` status. |
+| Status | `status` | `draft`, `published` | `draft` | Read-only. Set by save, publish and number changes. |
+| History depth | none | 5 versions | 5 | Not configurable per workspace. |
+
+## Publishing from the dashboard
+
+<Steps>
+  <Step title="Open the agent">
+    From **Agents**, open the agent. The toolbar shows **Choose Bundle** (or the active bundle's name), **Versions**, **Publish** and **Save**.
+  </Step>
+  <Step title="Check for a number">
+    The agent needs at least one number assigned as its **Inbound Agent** or **Outbound Agent** on the **Numbers** page. Without one, the Publish Agent dialog shows "This agent has no numbers assigned. Please assign at least one number before publishing." and the **Publish** button in the dialog stays disabled.
+  </Step>
+  <Step title="Click Publish">
+    If you have unsaved edits, Colloqui saves them first and only opens the dialog if the save succeeds. A save that fails validation shows the problems next to **Save** and the dialog does not open. Fix them and click **Publish** again.
+  </Step>
+  <Step title="Describe the change">
+    In **Publish Agent**, enter a **Description** of up to 1,000 characters. The placeholder suggests the style: "Updated greeting message and improved response time." The field is optional, but a version with no description is hard to tell apart from its neighbours later.
+  </Step>
+  <Step title="Confirm">
+    Click **Publish**. The agent page reloads with the agent in `published` status and the new version at the top of the history.
+  </Step>
+</Steps>
+
+<Note>
+**Publish** and **Save** are disabled while the workspace has no payment method on file. The agent page shows "Payment method required. Changes to this agent cannot be saved until one is configured." with a **Configure Payment Method** link. See [Billing](/workspace/billing).
+</Note>
 
 ## Unpublished changes
 
-After publishing, any edit makes the draft differ from the live version again. The agent page shows **Unpublished changes** until you publish or discard them. Calls are unaffected in the meantime.
+After publishing, any edit makes the draft differ from the live version again and the agent's status returns to `draft`. There are three places to see this:
 
-## Version history
+- The agent's **Status** column on the **Agents** page reads `draft`.
+- The **Versions** dialog adds a row at the bottom labelled **Draft** with the note **Unpublished changes**, marked **Current** because it is what you are editing.
+- Through the API, `GET /api/v1/agents/{id}` returns `"status": "draft"` and `"version": null`.
 
-Open **Agent Versions** to see every published version with its number, description and date, and which one is current. Choose a version and click **Restore** to copy it into the draft. Restoring does not publish; review the draft and publish when ready. The restored configuration becomes a new version with its own number, so history is never rewritten.
+A small orange dot next to the agent name in the breadcrumb means you have edits that are not even saved yet. Save first; the status change happens on save, not on typing.
 
-## Draft
+Calls are unaffected while an agent has unpublished changes. If you decide against the edits, open **Versions** and restore the current version to put the draft back to what is live.
 
-Agents go back to draft in one situation: when they lose their last number. An agent with no number cannot be reached, so it is unpublished rather than left live with nowhere to answer. Assign a number to bring it back.
+## Version history and restore
+
+Click **Versions** to open the **Agent Versions** dialog ("Browse published versions of this agent and restore a previous one."). Each row shows **Version N**, the date and time it was published, and its description. The version that is live carries a **Current** badge; every other version has a **Restore** button.
+
+Restoring:
+
+1. Click **Restore** on the version you want. A confirmation asks **Restore Version N?** and warns "Your current unsaved configuration will be overwritten. This action cannot be undone."
+2. Click **Restore**. The page reloads and a toast confirms "Agent restored to version N."
+3. The draft now matches version N and the agent is in `draft` status. Callers still get the version that was live before.
+4. Review the draft, then **Publish** it. The restored configuration becomes a new version with its own number, so the history records the rollback rather than rewriting it.
+
+Two things a restore does not do: it does not change number assignments, and it does not bring back a version that has already been pruned from the five-version history. If you need to keep a known-good configuration for longer than five publishes, duplicate the agent (below) or fetch the version through the API and store the JSON yourself.
+
+## How numbers interact with versions
+
+Numbers and publishing are linked, because a number is the only way a version can be reached:
+
+- **Assigning a number publishes the agent.** Setting an agent as a number's **Inbound Agent** or **Outbound Agent** publishes that agent's current draft immediately, with the description `Assigned to <nickname>` (or the number itself if it has no nickname). Treat a number assignment as a publish: never attach a number to an agent whose draft you would not want live.
+- **Losing the last number unpublishes the agent.** When a number is reassigned to another agent, cleared, or deleted, every agent that was on it is checked. An agent that still has at least one number is republished (description `Assigned to <nickname>` or `Number <number> deleted`); an agent left with no numbers goes to `draft`, its live configuration is withdrawn from the runtime, and it cannot be published until it has a number again.
+- **Moving a number between agents** therefore does both at once: publishes the new agent and may unpublish the old one.
+
+See [Numbers](/deploy/numbers) for the number side of this.
+
+## Duplicating an agent
+
+On the **Agents** page, open the row menu and choose **Duplicate**. The **Duplicate Agent** dialog creates a copy as a draft named `<original name> (copy)`. The copy has everything the original has except numbers, status and version history: it starts as an unpublished draft with no versions.
+
+If the original has knowledge bases attached, you must choose what the copy should use:
+
+- **Copy the knowledge bases**: the duplicate gets its own copies. Their sources are re-ingested, so they take a moment to become ready.
+- **Use the same knowledge bases**: both agents point at the same knowledge bases, so editing one affects both.
+
+Conversation-flow copies get fresh node ids, with every edge and the start node rewritten to match, so the two agents can be edited independently.
 
 ## By API
 
-[Publish Agent](/api-reference/agents/publish) accepts an optional description. [Agent Versions](/api-reference/agent-versions/list) lists versions, [Show Latest](/api-reference/agent-versions/show-latest) returns the live one, and [Restore](/api-reference/agent-versions/restore) copies a version into the draft. The draft itself is what [Show Agent](/api-reference/agents/show) returns.
+| Action | Endpoint |
+|---|---|
+| Publish the draft | [Publish Agent](/api-reference/agents/publish): `POST /api/v1/agents/{agent_id}/publish` |
+| List versions | [List Versions](/api-reference/agent-versions/list): `GET /api/v1/agents/{agent_id}/versions` |
+| Read the live version | [Show Latest](/api-reference/agent-versions/show-latest): `GET /api/v1/agents/{agent_id}/versions/latest` |
+| Read one version | [Show Version](/api-reference/agent-versions/show): `GET /api/v1/agents/{agent_id}/versions/{version_number}` |
+| Restore a version into the draft | [Restore](/api-reference/agent-versions/restore): `POST /api/v1/agents/{agent_id}/versions/{version_number}/restore` |
+| Read the draft | [Show Agent](/api-reference/agents/show): `GET /api/v1/agents/{id}` |
+
+Publish with a description:
+
+```bash
+curl -X POST https://dashboard.colloqui.ai/api/v1/agents/$AGENT_ID/publish \
+  -H "Authorization: Bearer $COLLOQUI_API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Shorter greeting, transfer to accounts added"}'
+```
+
+The version list is cursor-paginated (`per_page` 1 to 100, `cursor` from `meta.next_cursor`) and each entry carries only the version number, description and `published_at`:
+
+```json
+{
+  "data": [
+    { "version": 13, "description": "Shorter greeting, transfer to accounts added", "published_at": "2026-11-03T04:12:09.000000Z" },
+    { "version": 12, "description": "Assigned to Support Line", "published_at": "2026-11-01T22:40:51.000000Z" }
+  ],
+  "meta": { "per_page": 20, "next_cursor": null, "previous_cursor": null }
+}
+```
+
+`GET .../versions/{version_number}` and `.../versions/latest` return the full agent object as it was in that version, in the same shape as `GET /api/v1/agents/{id}`. On an agent that has never been published, `.../versions/latest` returns the message `This agent does not have a published version yet.` instead of data.
+
+Restore returns the updated draft with the message `Agent restored to version N`. Publishing and restoring require update access to the agent (owner, admin or developer role); listing and reading versions require view access.
+
+## Troubleshooting
+
+**Publish is greyed out.** Either the workspace has no payment method (the red banner at the top of the agent page says so) or a save is in progress. Add a card from the **Configure Payment Method** link, then try again.
+
+**The dialog says the agent has no numbers.** Go to **Numbers**, pick a number and set this agent as its **Inbound Agent**. That assignment publishes the agent on its own, so you do not need to come back and click **Publish** afterwards unless you edit again.
+
+**I published but callers still hear the old version.** Confirm the agent shows `published` status and that the number the caller dialled is assigned to this agent, not to another one. If a number was moved recently, the previous agent may still be the one listed on it. The new version applies to calls that start after the publish; a call already in progress continues on the version it started with.
+
+**An old version I want is gone.** Only the five most recent versions are kept. Versions are deleted at publish time, so if you are about to publish and want to keep version 1, fetch it through the API first.
+
+**My restore undid work I had not saved.** Restore overwrites the draft, including unsaved edits in the open page, which is what the confirmation warns about. Save or publish anything you want to keep before restoring.
+
+**Two people edited the same agent.** The dashboard saves the whole configuration the page loaded. If a colleague published while your tab was open, your next save or publish writes your older copy over theirs. Reload the agent before editing, and compare the version history after publishing when more than one person works on an agent.
+
+## FAQ
+
+**Does editing an agent take it off the air?** No. Saving moves the status to `draft`, but the last published version keeps answering calls. Only publishing changes what callers hear, and only losing the last number withdraws it.
+
+**Does the description do anything at runtime?** No. It is a label for people, stored with the version and shown in the Versions dialog and the API.
+
+**Can I publish from the API without a number?** No. The same rule applies: `POST .../publish` on an agent with no numbers is rejected with the error "Agent must have at least one number assigned before publishing."
+
+**Can I delete a version?** Not directly. Versions age out as new ones are published.
+
+**What happens to versions when I delete the agent?** They are deleted with it, and any active bundle on the agent is cancelled immediately.
+
+## Related
+
+- [Numbers](/deploy/numbers): assigning numbers, which publishes the agent
+- [Agents](/core-concepts/agents): agent types and defaults
+- [Billing](/workspace/billing): the payment method requirement
+- [API reference](/api-reference/introduction)

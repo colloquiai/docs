@@ -7,28 +7,28 @@ By the end of this page you will have an agent answering a real phone number. It
 
 <Steps>
   <Step title="Create your account">
-    Sign up at [dashboard.colloqui.ai](https://dashboard.colloqui.ai/register) with your name, email and a password, then confirm the verification email. Your account comes with a workspace, which is where agents, numbers and billing live. You can invite teammates to it later from **Settings**.
+    Sign up at [dashboard.colloqui.ai](https://dashboard.colloqui.ai/register) with your **Name**, **Email**, **Password** and **Confirm Password**, then confirm the verification email. Your account comes with a workspace named after you, which is where agents, numbers, team members and billing live. You can rename it and invite teammates later under **Settings → Workspace**.
   </Step>
 
   <Step title="Add a payment method">
-    Open **Billing** in the sidebar and add a card. Colloqui bills per workspace, and the dashboard will not let you edit an agent or add a number until a payment method is on file.
+    Open **Billing** in the sidebar and add a card. Colloqui bills per workspace, and you cannot create or save an agent until a payment method is on file.
 
     <Note>
-    If you skip this step you will see a **Payment method required** banner on the Agents page. The **Configure Payment Method** button on that banner takes you to the same place.
+    Until you do, the Agents page shows a **Payment method required** banner, and an open agent shows "Changes to this agent cannot be saved until one is configured." The **Configure Payment Method** button on either takes you to the billing portal.
     </Note>
   </Step>
 
   <Step title="Create an agent">
     Go to **Agents**, click **Create Agent**, and choose how it should be built:
 
-    - **Single Prompt** drives the whole call from one prompt. Start here.
-    - **Conversation Flow** is a visual flow of nodes with explicit transitions. Use it once you need a call to follow a fixed structure, such as collecting details in order before a booking.
+    - **Single Prompt**: one prompt drives the whole conversation. Start here.
+    - **Conversation Flow**: the conversation is a graph of nodes on a canvas. Use it once a call must follow a fixed structure, such as collecting details in order before a booking.
 
-    The agent opens as a draft called **New Agent**. It already has a working language model, voice and transcription configured, so you can make a call before you change anything.
+    Click **Create Agent**. The agent opens as a draft called **New Agent**, with a working language model, voice and transcription already configured. Click the pencil next to the name to **Rename Agent**.
   </Step>
 
   <Step title="Write the prompt">
-    On the **Prompt** tab, replace the placeholder in **Global Prompt** with what the agent should do. A short, concrete prompt beats a long vague one. For a first test:
+    Replace the placeholder in **Global Prompt** with what the agent should do. A short, concrete prompt beats a long vague one. For a first test:
 
     ```text
     You are the receptionist for Harbour Dental. Greet the caller, find out
@@ -38,7 +38,7 @@ By the end of this page you will have an agent answering a real phone number. It
     confirm, then end the call.
     ```
 
-    In the same tab you can set the **Welcome Message**, which is the first thing the caller hears. Leave it on the default for now.
+    Under **Welcome Message** you choose who speaks first (**AI speaks first** or **User speaks first**) and whether the greeting is a **Static message** you type or a **Dynamic message based on prompt**. Leave the defaults for now: the agent speaks first with a generated greeting.
 
     Click **Save**. Saving updates the draft only; nothing is live yet.
 
@@ -48,44 +48,72 @@ By the end of this page you will have an agent answering a real phone number. It
   </Step>
 
   <Step title="Get a phone number">
-    Open **Phone Numbers** and click **Add Number**. You have two options:
+    Open **Phone Numbers** and click **Add Number**. The menu has two options:
 
-    - **Buy Number** shows numbers available to purchase. Pick one and give it a nickname such as `Harbour Dental main line`.
-    - **Add Number** registers a number you already own. You will need to route that number to Colloqui at your carrier. See [Numbers](/deploy/numbers) for the details.
+    - **Buy Number** lists Australian numbers available to purchase. Pick one under **Number** and give it a **Nickname** such as `Harbour Dental main line`.
+    - **Add Number** registers a number you already own. You will also need to route that number to Colloqui at your carrier. See [Numbers](/deploy/numbers).
 
-    Buying a number is the quickest path for a first test.
+    Buying is the quickest path for a first test. The number is ready as soon as the dialog closes.
   </Step>
 
   <Step title="Assign the number to your agent">
-    Select the number you just added. Under **Inbound Agent**, choose your agent and save.
+    Select the number, choose your agent under **Inbound Agent**, and click **Save**.
 
-    Assigning a number publishes the agent automatically. You will see a new version in the agent's version history described as *Assigned to* followed by the number's nickname. An agent cannot be published without at least one number, so this is the step that makes it live.
+    Assigning a number publishes the agent automatically. Open **Versions** on the agent page and you will see version 1 described as *Assigned to* followed by the number's nickname. An agent cannot be published without a number, so this is the step that makes it live.
   </Step>
 
   <Step title="Make the call">
-    Dial the number from your phone. You should hear the welcome message, and the agent will follow your prompt from there.
+    Dial the number from your phone. It rings for a moment, then you hear the welcome message and the agent follows your prompt from there. Ask to book an appointment, give a name and number, and let it end the call.
 
-    Once you hang up, open **Call History**. The call appears with its transcript, and a recording if recording is enabled, which it is by default on new agents.
+    Once you hang up, open **Call History**. The call appears with its agent, time, duration and cost. Open it to read the **Transcription**, play the recording (on by default for new agents) and see any extracted **Data**.
   </Step>
 </Steps>
 
 ## Changing the agent after it is live
 
-Edits to a published agent are saved to its draft and do not affect calls until you publish them. When you are ready, click **Publish**, add a short description of what changed, and confirm. The agent's version history keeps every published version, and you can restore an earlier one at any time.
+Edits to a published agent are saved to its draft and do not affect calls until you publish them. When you are ready, click **Publish**, add a short **Description** of what changed, and confirm. **Versions** keeps every published version, and you can **Restore** an earlier one into the draft at any time. See [Versioning and publishing](/versioning/overview).
 
 ## What a new agent starts with
 
 | Setting | Default |
 |---|---|
-| Language model | GPT-4.1 |
+| Language model | GPT-4.1 (Azure), temperature 0.3 |
 | Transcription | Deepgram Nova 3 |
 | Voice | ElevenLabs Flash v2.5 |
 | First speaker | The agent, with a generated welcome message |
+| Tools | One End Call tool that says "Thank you for calling. Goodbye!" |
+| Semantic guardrails | On |
 | Call recording | On |
 | Maximum call length | 60 minutes |
 | Ring time before answering | 30 seconds |
 
-All of these can be changed on the agent page. See [Build an agent](/build-an-agent/llm) for what each setting does.
+All of these can be changed on the agent page. See [Agents](/core-concepts/agents) for every setting.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Can I test the agent from my browser with a microphone?">
+    No. There is no browser test call. Test by dialling the agent's number from a phone, which is also the only way to hear real latency, interruptions and line quality. Each test call appears in **Call History** with a transcript and recording, so you can review it afterwards.
+  </Accordion>
+  <Accordion title="Do I need a phone number?">
+    Yes. An agent cannot be published, and therefore cannot take a call, until at least one number is assigned to it. Assigning the number is what publishes it. If you later remove the agent's last number, it goes back to draft.
+  </Accordion>
+  <Accordion title="Do I need a bundle before the first call?">
+    The agent page has a **Choose a Bundle** button. A bundle is the monthly plan an agent runs on, with an included allowance and a per-minute rate beyond it. See [Billing](/workspace/billing) for how bundles and number charges work together.
+  </Accordion>
+  <Accordion title="Buying a number failed with a payment error">
+    **Payment failed. Please try again.** means the card on file was declined when the number was added to your subscription. Open **Billing**, check the card in the billing portal, then try again. Nothing is charged for a number that was not created.
+  </Accordion>
+  <Accordion title="Which countries and regions are numbers available in?">
+    Colloqui numbers are Australian. **Buy Number** offers numbers from the available pool, and **Add Number** accepts a valid Australian number. If the pool shows **No numbers available**, contact support.
+  </Accordion>
+  <Accordion title="I called and nothing answered">
+    Check three things: the number has an **Inbound Agent** set; the agent shows as published (open **Versions** and confirm there is a current version); and, for a number you brought yourself, your carrier is routing it to Colloqui. See [Numbers](/deploy/numbers).
+  </Accordion>
+  <Accordion title="The agent talks over me or waits too long">
+    Both are settings on the agent under **Realtime Transcription Settings**: **Interruption Sensitivity** controls how easily the caller can cut in, and **Response Eagerness** how quickly the agent replies after the caller pauses. See [Speech-to-text](/build-an-agent/stt).
+  </Accordion>
+</AccordionGroup>
 
 ## Next steps
 

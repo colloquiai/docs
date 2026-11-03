@@ -3,40 +3,223 @@ title: "Custom function"
 description: "Call your own HTTP API from a call, and use the response."
 ---
 
-Custom Function makes an HTTP request to a URL you choose, with parameters the model fills in from the conversation, and saves fields from the response as variables. It is how an agent books an appointment in your calendar, looks up an order, or hands a lead to your CRM.
+Custom Function makes an HTTP request to a URL you choose, with values the model fills in from the conversation and fixed values you set, and saves fields from the response as variables. It is how an agent books an appointment in your calendar, looks up an order, checks opening hours, or hands a lead to your CRM.
+
+## How it works
+
+In a single-prompt agent or Sub Agent node the model calls the function when your description says to, filling in the parameters you marked as model-filled. In a flow, a Custom Function node runs on entry: if it has model-filled parameters, a silent model call composes them from the conversation and the node instruction; if every value is fixed, no model call is made at all. The runtime then builds and sends the request:
+
+1. **URL.** The **API Endpoint** with any `{{variables}}` substituted.
+2. **Headers.** Each **Headers** entry, with `{{variables}}` substituted.
+3. **Query parameters.** Each **Query Parameters** entry, appended to the URL, with `{{variables}}` substituted. Query parameters are always fixed values; the model does not fill them.
+4. **Body.** For POST, PUT and PATCH, a JSON object built from the **Parameters** schema: model-filled parameters as the model returned them, filtered so that only declared names at any nesting level get through, plus fixed-value parameters resolved from variables. A fixed value always wins over a model value of the same name. GET and DELETE send no body.
+5. **Timeout.** The request is abandoned after **Timeout (ms)**. There are no automatic retries.
+
+The response is parsed as JSON (a non-JSON body is wrapped as `{"raw": "..."}`, cut at 2,000 characters). Then:
+
+- **2xx:** each **Variables** entry is resolved against the response by path and stored as a variable, skipping any path that is missing or null. The model (or the next node) receives `{"status": "success", "http_status": 200, "data": <the full response>, "extracted": {<the saved variables>}}`.
+- **Other status:** nothing is stored. In a single-prompt agent the model receives a terminal error naming the status and telling it not to retry with the same inputs. A second consecutive HTTP error in the same call makes the agent say "Sorry, I wasn't able to complete that just now. Let me help another way." and suppresses any further model reply on that turn; the counter resets after a success. In a flow, the error result is forwarded to the next node framed as a failed tool call that created, changed, sent or booked nothing.
+- **Timeout or network error:** `{"status": "error", "http_status": null, "error": "..."}` is returned and nothing is stored.
+
+### Fixed values and typing
+
+A parameter whose **Detail** is set to **Value** is never shown to the model. Its value, typically a `{{variable}}`, is resolved when the request is built and cast to the parameter's **Type**: an integer parameter bound to a variable holding `4` is sent as the number 4, not the text "4", and a boolean parameter accepts `true`, `false`, `yes`, `no`, `1` or `0`. Arrays are not cast; keep fixed values scalar. A variable that was never set is sent as its literal placeholder text, so make sure every path into the function sets the variables it uses.
 
 ## Settings
 
-| Setting | What it does |
-|---|---|
-| Tool Name, Description | What the function does and when to call it. |
-| Method, API Endpoint | `GET`, `POST`, `PUT`, `PATCH` or `DELETE`, and the URL. The URL can include variables, for example `https://api.example.com/users/{{user_id}}`. |
-| Timeout (ms) | How long to wait for a response before treating the call as failed. |
-| Headers | Sent with every request. Put authentication here. |
-| Query Parameters | Appended to the URL. |
-| Parameters | The request body, defined as a schema. Each parameter has a name, a type, whether it is required, and a description that tells the model what to put in it. Parameters can be nested. |
-| Variables | Fields to save from the response, each as a variable name and a JSON path into the response, for example `booking_id` from `$.data.id`. |
-| Speak during execution | A line to say while the request is in flight, so the caller is not left in silence. |
-| Speak after execution | A line to say when the request completes. |
+Fields in the order the **Custom Function** dialog shows them.
 
-Click the test control in the dialog to send a sample request from the dashboard and see the response before you save.
+| Setting | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Tool Name** | `name` | Letters, digits, `_`, `-`; max 255 | none | Hidden on a Custom Function node |
+| **Description** | `description` | Up to 1,024 characters | none | What it does and when to call it |
+| **Method** | `http_method` | **GET**, **POST**, **PUT**, **PATCH**, **DELETE** | `GET` | |
+| **API Endpoint** | `api_endpoint` | A valid URL; may contain `{{variables}}` | none | Required |
+| **Timeout (ms)** | `timeout` | 0 or more | 120,000 when omitted by API | Set it explicitly; see below |
+| **Headers** | `custom_function_headers` | Key and value pairs | none | Sent on every request; may contain `{{variables}}` |
+| **Query Parameters** | `custom_function_query` | Key and value pairs | none | Fixed values; may contain `{{variables}}` |
+| **Variables** | `custom_function_variables` | Variable name and response path pairs | none | Saved from the response |
+| **Parameters (Optional)** | `custom_function_parameters` | JSON schema (stored as a string) | none | The request body; see below |
+| **Speak during execution** | `speak_during_execution` + `speak_during_execution_message` | On or off, plus a message | off | Said before the request |
+| **Speak after execution** | `speak_after_execution` + `speak_after_execution_message` | On or off, plus a message | off | Said after a successful request; not available on a node |
 
-## Parameters the model must not invent
+Switching either speak option on requires its message; the dialog shows the field, and the API rejects the flag without it.
 
-For values that must be fixed, such as a sender address, a source tag or an API version, set a constant rather than describing the value and hoping the model copies it. A constant is sent exactly, every time.
+### The parameters editor
+
+**Parameters (Optional)** has a **Form** view and a **JSON** view of the same schema; switching converts between them. In the form, each row has a **Parameter Name**, a **Detail** with a mode selector (**Description** for a model-filled value, **Value** for a fixed one), a **Type** (`string`, `number`, `integer`, `boolean`, `object`, `array`) and a **Required** toggle. An `object` row gets an **Add child parameter** control for nested fields, and a child can itself be fixed or model-filled. In the JSON view the same schema is standard JSON Schema: a `description` makes a property model-filled, a `const` makes it fixed, and `required` lists the properties the model must supply.
+
+### Response paths
+
+Each **Variables** entry is a variable name and a path into the JSON response. Paths may start with `$.`, use dots for object keys and either `.0` or `[0]` for array indexes, and `$` alone saves the whole response.
+
+| Response | Path | Saved value |
+|---|---|---|
+| `{"data": {"id": "bk_91"}}` | `$.data.id` | `bk_91` |
+| `{"results": [{"name": "Jo"}]}` | `results[0].name` | `Jo` |
+| `{"in_range": true}` | `$.in_range` | `true` |
+
+## Setting up a function
+
+<Steps>
+  <Step title="Add it">
+    Single-prompt agent: expand **Functions**, click **Add**, then **Custom Function**. Flow: drag a **Custom Function** node onto the canvas, or use **Node Functions** on a Sub Agent node.
+  </Step>
+  <Step title="Name and describe it">
+    Give it a verb name such as `book_appointment`. In **Description**, say what it does and when to call it, and what must be collected first.
+  </Step>
+  <Step title="Set the request">
+    Choose the **Method** and enter the **API Endpoint**. Set **Timeout (ms)** to what a caller can bear in silence, around 8,000 to 12,000. Add authentication under **Headers**.
+  </Step>
+  <Step title="Define the parameters">
+    Under **Parameters (Optional)**, add a row per field in the request body. Use **Description** for values the model gathers from the caller and **Value** for anything fixed, such as `{{user_number}}` or a source tag. Mark the ones the model must supply as **Required**.
+  </Step>
+  <Step title="Save response fields">
+    Under **Variables**, map the response fields you need later, for example `booking_id` to `$.data.id`.
+  </Step>
+  <Step title="Add spoken lines">
+    Turn on **Speak during execution** with a short line such as "Just checking that now." so the caller is not left in silence.
+  </Step>
+  <Step title="Test it">
+    Click **Test** to open **Test Custom Function**. Type a JSON body under **Request** and click **Run Test**. The **Response** panel shows the HTTP status and body. The test sends the method, URL, headers and query parameters as typed; variables are not substituted, so use real values.
+  </Step>
+  <Step title="Save">
+    Click **Add Tool** or **Apply**, then save the agent.
+  </Step>
+</Steps>
+
+## Worked example
+
+A booking function for a dental practice. The caller's name and preferred time come from the model; the phone number and source are fixed.
+
+Tool settings:
+
+- **Method** POST, **API Endpoint** `https://api.example.com/bookings`
+- **Headers** `Authorization` = `Bearer sk_live_...`, `Content-Type` = `application/json`
+- **Variables** `booking_id` = `$.data.id`, `confirmed_time` = `$.data.start`
+- **Speak during execution** on, "Let me book that in for you now."
+
+Parameters, in the JSON view:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "description": "The caller's full name as confirmed."},
+    "preferred_time": {"type": "string", "description": "The appointment time the caller asked for, in ISO 8601 with timezone."},
+    "phone": {"type": "string", "const": "{{user_number}}"},
+    "source": {"type": "string", "const": "voice_agent"}
+  },
+  "required": ["name", "preferred_time"]
+}
+```
+
+What your API receives:
+
+```json
+POST /bookings
+Authorization: Bearer sk_live_...
+Content-Type: application/json
+
+{
+  "name": "Jane Smith",
+  "preferred_time": "2026-11-06T10:00:00+11:00",
+  "phone": "+61412345678",
+  "source": "voice_agent"
+}
+```
+
+What your API returns:
+
+```json
+{"data": {"id": "bk_91", "start": "2026-11-06T10:00:00+11:00", "status": "confirmed"}}
+```
+
+What the model (or the next node) sees, with `booking_id` and `confirmed_time` now available as variables:
+
+```json
+{
+  "status": "success",
+  "http_status": 201,
+  "data": {"data": {"id": "bk_91", "start": "2026-11-06T10:00:00+11:00", "status": "confirmed"}},
+  "extracted": {"booking_id": "bk_91", "confirmed_time": "2026-11-06T10:00:00+11:00"}
+}
+```
+
+A prompt line that goes with it in a single-prompt agent:
+
+```text
+Call book_appointment only after the caller has confirmed their name and
+the time. If it succeeds, read back the confirmed time. If it reports an
+error, say the booking could not be made and offer to have reception call
+back. Never say a booking is confirmed unless the tool result says so.
+```
 
 ## Timeouts
 
-Set the timeout to what the caller can bear in silence, not to what your API might need in the worst case. A 12 second timeout with a spoken "just checking that now" is a better experience than a 2 minute timeout that leaves the caller wondering if the line dropped. If the request fails, the agent should say so and offer an alternative.
+Set the timeout to what the caller can bear in silence, not to what your API might need in the worst case. A 12-second timeout with a spoken "just checking that now" is a better experience than a two-minute wait that leaves the caller wondering if the line dropped. Set it explicitly: the API default when the field is omitted is 120,000 ms, and a function left at a very low value fails before the request completes.
 
 ## Headers and secrets
 
-Headers are stored with the agent and visible to anyone who can view it in the dashboard or by API. Use a key issued for this agent alone, and rotate it if the agent is shared.
-
-## Using the response
-
-Saved variables can be spoken, used in an SMS, or tested by a flow branch. The most important use is deciding whether the call succeeded. Check for a field that only exists on success, such as a returned id, rather than comparing against a status text you have to guess.
+Headers are stored with the agent and returned to anyone who can view the agent in the dashboard or by API. Use a key issued for this agent alone, rotate it if the agent is shared, and never paste a key into a description or prompt.
 
 ## In a conversation flow
 
-Custom Function is a node. Its outgoing transitions should be equation conditions on the saved variables, never a prompt asking the model to judge whether the request worked. Give it a fallback transition to a node that does not claim success. See [Edges](/conversation-flows/edges) and [Patterns](/conversation-flows/patterns).
+Custom Function is a node. It runs on entry without speaking, apart from the **Speak during execution** line, and then routes: equation conditions on its edges are evaluated first, then a silent routing call picks among prompt-conditioned edges using the result, and the else edge is the fallback. Write the success edges as equations on the saved variables, such as `{{booking_id}}` exists, and point the else edge at a node that does not claim success. The next node is told the result, framed as a success it can read from or as a failure, so it can tell the caller what happened. **Speak after execution** is not offered on a node because the following conversation node speaks instead.
+
+A node with no model-filled parameters makes no model call and completes in well under a second, which makes it a good way to fetch something deterministic such as whether the practice is open right now. See [Nodes](/conversation-flows/nodes) and [Patterns](/conversation-flows/patterns).
+
+## By API
+
+```json
+{
+  "type": "custom_function",
+  "name": "book_appointment",
+  "description": "Book a dental appointment once the caller has confirmed their name and time.",
+  "http_method": "POST",
+  "api_endpoint": "https://api.example.com/bookings",
+  "timeout": 12000,
+  "custom_function_headers": {"Authorization": "Bearer sk_live_...", "Content-Type": "application/json"},
+  "custom_function_query": null,
+  "custom_function_parameters": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"The caller's full name.\"},\"phone\":{\"type\":\"string\",\"const\":\"{{user_number}}\"}},\"required\":[\"name\"]}",
+  "custom_function_variables": {"booking_id": "$.data.id"},
+  "speak_during_execution": true,
+  "speak_during_execution_message": "Let me book that in for you now.",
+  "speak_after_execution": false
+}
+```
+
+`custom_function_parameters` is a JSON schema encoded as a string. On a flow node the same fields sit under `config` with `"type": "custom_function"`. See [Update Agent](/api-reference/agents/update).
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="The agent does not call the function">
+    In a single-prompt agent, the description is the trigger; make it say when to call, and name the parameters the model must have gathered first. Check that the prompt does not tell the model to answer the same question itself. In a flow, a conversation node cannot call a function: route to a Custom Function node, or put the function on a Sub Agent node.
+  </Accordion>
+  <Accordion title="How do I get data back to the agent?">
+    Return JSON. Everything you return is in `data` for the model to read, and the fields you map under **Variables** become variables for later nodes, SMS content and equations. Keep responses small and focused; a large payload slows the model's next turn and costs tokens on every subsequent turn of the call.
+  </Accordion>
+  <Accordion title="The agent said the booking was made but my API returned an error">
+    The prompt or the next node is claiming success without checking. In a flow, route success on an equation such as `{{booking_id}}` exists and send everything else down the else edge. In a single-prompt agent, add the "never say it succeeded unless the tool result says so" rule.
+  </Accordion>
+  <Accordion title="What happens if the caller speaks during the request?">
+    The request continues and completes. The caller's words are transcribed and the model answers them once the result is in. If the caller interrupts the **Speak during execution** line, the line stops but the request is unaffected.
+  </Accordion>
+  <Accordion title="Can I point it at localhost or a private network?">
+    No. The request is made from the platform, so the URL must be reachable from the internet over HTTPS. For development, expose your local server through a tunnel and use the public URL.
+  </Accordion>
+  <Accordion title="A parameter arrived as a literal placeholder">
+    A fixed value referenced a variable that was never set on that path. Set it on every path into the function, branch on `exists` beforehand, or make the parameter model-filled with a description that names the fallback value.
+  </Accordion>
+  <Accordion title="The Test dialog works but the live call fails">
+    The test uses the values you typed, with no variable substitution and a 30-second limit. On a live call, check that every `{{variable}}` in the URL, headers and fixed values has been set, and that **Timeout (ms)** is long enough for your API.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Tools overview](/build-an-agent/tools/overview)
+- [Extract variable](/build-an-agent/tools/extract-dynamic-variable) for gathering the values a function needs
+- [Variables](/conversation-flows/variables)
+- [Edges](/conversation-flows/edges) for equation conditions on response variables

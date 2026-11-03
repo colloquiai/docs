@@ -3,31 +3,112 @@ title: "Workspaces"
 description: "The container for your agents, numbers, knowledge bases, team and billing."
 ---
 
-Everything you create in Colloqui belongs to a workspace. Agents, phone numbers, knowledge bases, guardrails, call history, team members and the payment method all live inside one, and nothing is shared across workspaces.
+Everything you create in Colloqui belongs to a workspace. Agents, phone numbers, knowledge bases, guardrails, call history, webhooks, API keys, team members and the payment method all live inside one, and nothing is shared across workspaces. An agency running agents for five clients keeps each client in its own workspace so that staff, numbers and invoices never mix; a single business keeps one.
 
-Most customers need exactly one. Create more when you need hard separation, for example one per client if you are an agency, or one per brand with its own billing.
+## How workspaces work
 
-## Members and roles
+- Your account gets a workspace when you sign up, named after you, for example **Patrick's Workspace**. It is your default workspace: the one the dashboard opens and the one a login token is bound to unless you say otherwise.
+- Create more from the workspace switcher at the top of the sidebar: choose **Add Workspace**, enter a **Workspace Name**, and confirm. Whoever creates a workspace is its owner.
+- Switch between workspaces from the same switcher. The sidebar, every list and every action then applies to the workspace you are in.
+- Each workspace has its own billing customer. The payment method, the bundle each agent runs on, and invoices are per workspace. See [Billing](/workspace/billing).
+- An API key belongs to the workspace that was current when it was created, and every request made with it is scoped to that workspace. If you work across workspaces, create one key per workspace. See [Authentication](/get-started/authentication).
 
-Invite people from **Settings → Workspace → Users**. Each member has one role:
+Only owners and admins see **Billing** and **Settings** in the sidebar. **Settings → Workspace** has three pages: **General**, **Users** and **Roles**.
 
-| Role | What they can do |
-|---|---|
-| Owner | Everything, including deleting the workspace. There is one owner. |
-| Admin | Everything the owner can do except delete the workspace. Manages billing, members and settings. |
-| Developer | Build, test and monitor agents, numbers and knowledge bases. Cannot change billing. |
-| Member | View agents, call history and analytics. Cannot change anything. |
+## General
 
-Invites are sent by email and can be cancelled or re-roled from the same page before they are accepted.
+**General** holds the workspace **Name** (required) and an optional **Description**. Click **Save**. The name appears in the switcher and on invoices.
 
-## API keys are bound to a workspace
+## Roles
 
-An API key belongs to the workspace that was current when it was created. Every request made with it is scoped to that workspace, and there is no way to point a key at a different one. If you work across workspaces, create one key per workspace. See [Authentication](/get-started/authentication).
+Each member has one role. The owner is the person who created the workspace; there is exactly one, the role cannot be assigned to anyone else, and the owner cannot be removed. Every other member is an admin, a developer or a member.
 
-## Billing is per workspace
+| Role | API value | What it can do |
+|---|---|---|
+| Owner | `owner` | Everything, including deleting the workspace. Cannot be changed or removed. |
+| Admin | `admin` | Everything the owner can do except delete the workspace: billing, members, workspace settings, API keys, and all building and monitoring. |
+| Developer | `developer` | Build, test and monitor: create, edit and delete agents, numbers, knowledge bases and guardrails, and view call history and analytics, within the modules and agents granted to them. No billing, members, settings or API keys. |
+| Member | `member` | View only, within the modules and agents granted to them. Cannot create, edit, delete, publish or assign anything. |
 
-The payment method, invoices and agent bundles are all set at the workspace level under **Billing**. A workspace needs a payment method before its agents can be edited or numbers added. See [Billing](/workspace/billing).
+The **Roles** page in settings shows the same three assignable roles with a short description of each.
+
+### Permissions in detail
+
+| Action | Owner | Admin | Developer | Member |
+|---|---|---|---|---|
+| View agents, numbers, knowledge bases, guardrails, call history, analytics | Yes | Yes | With module | With module |
+| Create, edit, delete, publish agents; assign numbers; manage knowledge bases and guardrails | Yes | Yes | With module | No |
+| Register or manage webhooks | Yes | Yes | Yes | Yes |
+| Create and revoke API keys | Yes | Yes | No | No |
+| Billing: payment method, bundles, invoices | Yes | Yes | No | No |
+| Rename the workspace; invite, re-role and remove members | Yes | Yes | No | No |
+| Delete the workspace | Yes, except their default workspace | No | No | No |
+
+"With module" means the module has been granted to that person, as described next.
+
+## Modules and agent access
+
+Developers and members only see the parts of the workspace they have been granted. When you invite or edit one of them, the dialog shows a **Modules** multi-select with six choices:
+
+| Module | API value | Unlocks |
+|---|---|---|
+| Agents | `agents` | The Agents page and agent editor |
+| Knowledge base | `knowledge_base` | Knowledge bases |
+| Guardrails | `guardrails` | Guardrails |
+| Phone numbers | `phone_numbers` | Phone Numbers |
+| Call history | `call_history` | Call History |
+| Analytics | `analytics` | Analytics |
+
+A module that is not granted disappears from that person's sidebar, and any request for it, in the dashboard or by API, is refused. Owners and admins always have every module.
+
+When **Agents** is among the modules, an **Agent Access** multi-select appears. Leave it empty to grant access to every agent in the workspace, or pick specific agents to limit the person to those. An agent that is not listed cannot be viewed, edited or assigned to a number by that person. This is how you give an external builder access to one client's agent without exposing the others.
+
+## Inviting and managing members
+
+<Steps>
+  <Step title="Open Settings → Workspace → Users">
+    The page lists current members with their role, and, below it, any pending invites.
+  </Step>
+  <Step title="Click Invite a member">
+    Enter the **Email**, choose a **Role** (Admin, Developer or Member), and for a developer or member pick **Modules** and optionally **Agent Access**. Click **Invite**.
+  </Step>
+  <Step title="The invitee accepts">
+    They receive an email with a signed link. By default the link is valid for one day. If they already have a Colloqui account under that email, accepting adds them to the workspace. If not, the link takes them to a short sign-up, creates the account with the email already verified, and makes this workspace their default.
+  </Step>
+</Steps>
+
+Pending invites show **Email**, **Role**, **Invited** and **Status** (**Pending** or **Expired**). From the row menu you can **Edit** an invite's role, modules and agent access before it is accepted (not once expired), or **Delete** it. Inviting an address that is already a member fails with "This user is already a member of the workspace."
+
+For existing members, the row menu offers **Update Role**, which opens the same role, modules and agent-access choices, and **Remove User**. Two limits: the owner's role cannot be changed, and the owner cannot be removed. Removing someone whose default workspace was this one gives them another workspace as default, or creates a fresh personal one if they belong to no other.
+
+## Deleting a workspace
+
+Only the owner can delete a workspace, and not while it is their own default workspace; switch your default to another workspace first. Deleting removes everything in it. Members who had it as their default are moved to another workspace. Delete numbers first if you want to stop their charges cleanly, and revoke API keys that were created in it.
 
 ## Managing workspaces by API
 
-The [Workspaces](/api-reference/workspaces/list) endpoints create, rename and delete workspaces and manage their members. Note that listing workspaces returns every workspace your user belongs to, while every other list endpoint returns only the key's own workspace.
+The [Workspaces](/api-reference/workspaces/list) endpoints create, rename, show and delete workspaces, and [Workspace Users](/api-reference/workspace-users/list) manage members. Two differences from the dashboard:
+
+- **Listing workspaces is not scoped by the key.** `GET /api/v1/workspaces` returns every workspace your user belongs to, while every other list endpoint returns only the key's own workspace.
+- **Adding a member by API adds an existing user, not an email invite.** `POST /api/v1/workspaces/{workspace}/users` takes the user's `id`, a `role` (`admin`, `developer` or `member`; `owner` is rejected), and optional `modules` and `agent_ids` arrays. The email-invite flow is dashboard only.
+
+```bash
+curl -X POST https://dashboard.colloqui.ai/api/v1/workspaces/$WORKSPACE_ID/users \
+  -H "Authorization: Bearer $COLLOQUI_API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "01kfy63vz7v5w25nk0xa3xsj5g",
+    "role": "developer",
+    "modules": ["agents", "call_history"],
+    "agent_ids": ["01m5twyp326sn8hznd4eypqjjm"]
+  }'
+```
+
+`PUT .../users/{user}` changes `role`, `modules` and `agent_ids`; `modules` and `agent_ids` are ignored for admins, and an empty `agent_ids` means all agents. `DELETE .../users/{user}` removes the member. Creating a workspace needs only `name`; `description` is optional. [Billing history](/api-reference/workspaces/billing-history), billing info and payment methods are read under the workspace as well.
+
+## Related
+
+- [Authentication](/get-started/authentication) for keys and their workspace binding
+- [Billing](/workspace/billing) for payment method, bundles and invoices
+- [Workspace settings](/workspace/overview) for the settings pages at a glance

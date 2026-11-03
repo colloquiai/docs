@@ -3,7 +3,21 @@ title: "Variables"
 description: "Values the agent knows about the call, and values it extracts."
 ---
 
-A variable is a named value available for the rest of the call. Refer to one in any instruction, condition, message or tool field by wrapping its name in double curly braces.
+A variable is a named value available for the rest of the call. Some are set when the call starts, some are computed on demand, and most are extracted from the conversation or saved from an API response. Refer to one anywhere by wrapping its name in double curly braces, as in `{{caller_name}}`. A flow that greets by name, posts a booking to your API with the caller's number, and branches on the response id uses all three kinds.
+
+## Where variables can be used
+
+| Place | How it is substituted |
+|---|---|
+| Global prompt and prompt instructions | Replaced when the node is entered, so an instruction sees the values extracted before it |
+| Static sentences | Replaced just before the line is spoken |
+| Equation conditions | A bare `{{name}}` keeps the stored type; a literal containing one is substituted as text |
+| Extract Variable descriptions | Replaced in the tool description and each variable description |
+| Custom Function endpoint, headers, query, body | Replaced when the request is built; a `const` body field that is only a placeholder keeps the stored type |
+| Send SMS content and recipient | Replaced before sending |
+| Transfer and End Call messages, tool descriptions | Replaced before use |
+
+Substitution is literal text replacement. A variable stored as empty substitutes to nothing.
 
 ## Built-in variables
 
@@ -11,32 +25,137 @@ These are set when the call starts.
 
 | Variable | Value |
 |---|---|
-| `user_number` | The caller's phone number |
-| `agent_number` | The number the caller dialled |
+| `user_number` | The caller's phone number on an inbound call; the number dialled on an outbound call |
+| `agent_number` | The agent's number: the number dialled on an inbound call |
 | `call_id` | The call's id, matching Call History |
 | `direction` | `inbound` or `outbound` |
+| `call_type` | `phone_call` or `web_call` |
+| `agent_timezone` | The agent's configured timezone name, or empty when none is set |
+| `current_node` | The name of the node the call is in |
+| `previous_node` | The name of the node the call came from; unchanged when a node re-enters itself |
 
-Because the caller's number is already known, never ask for it. Ask whether the number they are calling from is the best one to reach them on.
+Because the caller's number is already known, never ask for it. Ask whether the number they are calling from is the best one to reach them on, and use `{{user_number}}` in the message or API call.
 
 ## Time variables
 
-When the agent has a timezone set, the current date and time are added to every turn, along with a calendar for this week and next so relative dates resolve correctly. You can also use `current_time` and `current_hour` directly, or a specific zone such as `current_hour_Australia/Sydney`. The hour is what you compare against in an hours check, so make sure the variable you compare is numeric.
+Set the agent's timezone with **Select a timezone** in the agent settings. Three placeholders are then computed at the moment they are substituted, so a line spoken late in the call shows the time then, not at the start:
+
+| Variable | Example value |
+|---|---|
+| `current_time` | `Tuesday, November 4, 2026 at 2:15 PM AEDT` |
+| `current_hour` | `14.25`: the hour as a decimal, so 2:15 PM is 14.25 and 9:00 AM is 9.0 |
+| `current_calendar` | One dated line per day from today to this Sunday, today marked "(Today)" |
+
+Each accepts a timezone suffix that overrides the agent's: `{{current_hour_Australia/Sydney}}`. With no timezone set and no suffix, the time is UTC. A suffix that is not a known timezone is left unresolved in the text.
+
+Setting a timezone also does two things in the background. The global prompt gains a "Time Awareness" section and a `get_current_time` tool the model is told to call before answering anything time-sensitive, including relative dates like "next Thursday". And every silent model call (extraction, composing a function's arguments or an SMS) is given the current date, this week's and next week's calendars, and the rule that "next Friday" means the Friday of next week, so an extracted date is resolved correctly.
+
+For an hours check, compare `{{current_hour}}` with a numeric operator: `{{current_hour}} >= 9` and `{{current_hour}} < 17.5`. Day-of-week is not exposed as a number; extract it with an Extract Variable node from the calendar line, or have a Custom Function return it, and branch on that.
 
 ## Extracted variables
 
-[Extract Variable](/build-an-agent/tools/extract-dynamic-variable) nodes and tools create variables from the conversation. Their type is set when you define them, and that type matters: a number compares numerically, a string compares as text, and an enum is always one of its choices.
+[Extract Variable](/build-an-agent/tools/extract-dynamic-variable) nodes and tools create variables from the conversation. Each has a **Name**, a **Type** and a **Description**.
+
+| Type | Stored as | Notes |
+|---|---|---|
+| string | Text | The default |
+| number | Decimal number | Compares numerically |
+| integer | Whole number | Compares numerically |
+| boolean | true or false | Compare with `== true` |
+| enum | One of the **Choices** | Matched case-insensitively, stored with the configured spelling; a value outside the choices is not stored |
+
+The description is a prompt to the extractor, and it is where extraction problems are fixed. A value that will be read back or sent as digits needs "digits only, exactly as the caller said them, do not reformat". A value that is optional needs a stated fallback, "if not given, use an empty string", because variables are required by default and a bare "leave blank" still makes the model produce something.
+
+The extractor sees recent conversation only, on the order of the last twenty messages, plus the results carried from earlier nodes and the values already stored for the node's own variables. Extract soon after the value is spoken; if a value from earlier is needed later, have the agent restate it once so it is back in view.
+
+Variable names must start with a letter, underscore or hyphen and contain only letters, digits, underscores and hyphens. Every Extract Variable node in a flow writes to the same store, so a later node can overwrite an earlier value, which is how corrections work.
 
 ## Response variables
 
-A [Custom Function](/build-an-agent/tools/custom-function) can save fields from the API response as variables by JSON path. These are what you branch on after the call.
+A [Custom Function](/build-an-agent/tools/custom-function) saves fields from the response body as variables by JSON path: `$.id`, `$.data.results[0].name`, or the dotted form `data.results.0.name`. They are stored only when the request succeeds and the path resolves, and keep the type the API returned, so a JSON number compares numerically and a JSON boolean compares as `true` or `false`. A failed request stores nothing, which is why `{{result_id}} exists` is the reliable success test.
 
-## Variables in static text
+## Missing variables
 
-Static instructions and SMS content substitute variables literally. Two things follow:
+What happens when a referenced variable has no value depends on how it was left:
 
-- A variable that was never set is spoken or sent as its placeholder text. Make sure every path into a node sets the variables that node uses, or branch on `exists` first.
-- A phone number is read as one long number unless stored as spaced digits. Have the extraction description produce "0 4 1 2" style output for anything that will be read back.
+- **Never set**: the placeholder stays in the text. A static line speaks it as "caller name", an SMS sends it, and an API request carries the literal `{{caller_name}}` in the field. A warning is logged, but the request still goes out.
+- **Set to empty**: substitutes to nothing. In an equation, `exists` is false and `not_exists` is true, the same as never set.
 
-## Variables the extractor cannot see
+Two rules follow:
 
-The extractor works on recent conversation, roughly the last dozen messages, not the whole call. Extract soon after the value is spoken, and if a value from earlier is needed later, have the agent restate it once so it is back in view.
+1. Make sure every path into a node sets the variables that node uses, or branch on `exists` first and give the other path a line or request without the variable. A confirmation line that can say "your name is not given" needs a Logic Split in front of it with a variant that leaves the name out.
+2. Prefer an empty string to a sentinel word as the extraction fallback, so a static line stays natural and a backend can treat empty as absent.
+
+## Variables in equations
+
+A bare `{{variable}}` on either side resolves to the stored value with its type. `==` and `!=` compare numerically when both sides are numbers and as text otherwise, so an integer `18` equals the literal `18`. The numeric operators need both sides to parse as numbers, so an unset variable or a time written with a colon makes them false. See [Edges and conditions](/conversation-flows/edges#equation-conditions).
+
+## Examples
+
+A static read-back with a phone number stored as spaced digits so it is read one digit at a time:
+
+```text
+Just to confirm: your name is {{caller_name}} and the number is {{callback_number}}. Is that correct?
+```
+
+An hours check on a Logic Split, with **All of the conditions match**:
+
+```text
+{{current_hour}}  is at least   9
+{{current_hour}}  is less than  17
+```
+
+A Custom Function endpoint and body built from variables:
+
+```text
+POST https://api.example.com/callbacks?source={{agent_number}}
+{
+  "name": "{{caller_name}}",
+  "phone": "{{user_number}}",
+  "call_id": "{{call_id}}",
+  "requested_at": "{{current_time}}"
+}
+```
+
+A prompt instruction that uses position:
+
+```text
+You are in the {{current_node}} step and the caller came from {{previous_node}}.
+```
+
+## By API
+
+Variables are not objects in the API. They are defined inside the node that produces them: `config.variables[]` on an `extract_dynamic_variable` node or tool, and `config.custom_function_variables` on a `custom_function` node or tool. Anything else is a `{{name}}` reference in a string field.
+
+```json
+{
+  "config": {
+    "type": "custom_function",
+    "name": "create_callback",
+    "http_method": "POST",
+    "api_endpoint": "https://api.example.com/callbacks",
+    "custom_function_variables": { "callback_id": "$.id", "callback_status": "$.status" }
+  }
+}
+```
+
+## FAQ
+
+**Can I set a default value for a variable?**
+Not at the agent level. Give the extraction description a fallback, branch on `exists`, or have a Custom Function return the default.
+
+**Is there a variable for the caller's name or any CRM field?**
+No. Only the built-ins above exist at call start; everything else comes from extraction or an API response.
+
+**Why was a number read as "four hundred and twelve million"?**
+It was stored as digits with no spaces. Have the extraction description produce spaced digits for anything that will be spoken.
+
+**Does a single-prompt agent have variables?**
+Yes: the built-ins, the time variables, and anything its Extract Variable and Custom Function tools save. `current_node` and `previous_node` are empty.
+
+## Related
+
+- [Extract variable](/build-an-agent/tools/extract-dynamic-variable)
+- [Custom function](/build-an-agent/tools/custom-function)
+- [Edges and conditions](/conversation-flows/edges)
+- [Patterns](/conversation-flows/patterns)

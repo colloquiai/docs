@@ -3,37 +3,180 @@ title: "Transfer call"
 description: "Hand the caller to a person, with a directory of destinations, warm or cold."
 ---
 
-Transfer Call connects the caller to a phone number. One tool can hold a whole directory of destinations, and the agent picks the right one from each entry's description.
+Transfer Call connects the caller to a phone number. One tool holds a directory of destinations, each with a description the model uses to choose between them and a transfer type that decides whether the person answering is briefed first. A typical use is a reception agent that puts sales enquiries through to the sales team with a warm introduction, and everything else through to the office line cold.
+
+## How it works
+
+The model calls the tool with the destination it wants (and, for warm transfers, a one-line summary of why). The runtime then:
+
+1. **Picks the directory entry.** If the directory has one entry, it is used whatever the model asked for. Otherwise the model's text is matched, case-insensitively, as a substring of each entry's **Name** and **Description**. No match or more than one match is a failure, and the model is told to say the declined line.
+2. **Speaks the announcement to the caller.** A **Static message** is spoken word for word. A **Prompt-based** announcement is written by a separate model call that knows only the destination name, the summary and your instructions, and is held to one or two sentences. Either way the line cannot be interrupted. Set to **None** (flow nodes only) nothing is said.
+3. **Transfers.** What happens next depends on the entry's **Transfer Type**.
+
+### Cold transfer
+
+The caller's leg is redirected to the destination number and the agent leaves the call. The caller hears ringing from the destination. There is no feedback once the redirect has been accepted, so a cold transfer to a number that rings out leaves the caller with that number's own voicemail or busy tone. Use cold transfers only to lines that are reliably answered.
+
+### Warm transfer
+
+1. The caller is placed on hold: audio is muted in both directions and, with **Hold Audio** set to **Music**, hold music plays.
+2. The runtime dials the destination on a separate leg and waits for an answer, for at most the agent's **Ring Duration** (30 seconds by default). No answer by then is a failure with reason "no answer".
+3. When the destination answers, the runtime briefs them: "Hi, I have the caller on the line for you — [summary]. Are you available to take this call?" The summary is the one the model supplied when it called the tool. The person can ask a question and the briefing agent answers in one sentence from the last few turns of the conversation.
+4. If they accept ("yes", "sure", "go ahead"), the briefing agent says "Connecting you to the customer now", the caller is taken off hold and bridged to the destination, and the agent leaves the call.
+5. If they decline ("no", "busy", "wrong department"), or hang up during the briefing, the caller is taken off hold and the **Transfer Declined** line is spoken by the runtime itself, not by the model, so it is said exactly once even if the model is interrupted. The call then continues with the agent.
+6. If no outcome is reached within 90 seconds of the destination answering, the transfer is treated as failed.
+
+If the caller hangs up at any point, the destination leg is dropped immediately.
+
+### Voicemail
+
+With **Voicemail Detection** on, the briefing agent listens for a voicemail greeting on the destination leg:
+
+- **Hang up**: the destination leg is dropped, the caller comes back to the agent and hears the declined line. The caller is never left talking to someone's voicemail.
+- **Leave a message**: the **Static Message** text, or a message generated from your **Prompt** (kept under thirty seconds of speech and given the transfer summary for context), is spoken into the voicemail. The leg is then hung up and the caller is told "I've left them a message. Is there anything else I can help you with?", or your prompt-based declined line if you chose one.
+
+With detection off, a destination that goes to voicemail is treated as a decline and the caller hears the declined line.
 
 ## Settings
 
-| Setting | What it does |
-|---|---|
-| Tool Name, Description | When the agent should transfer at all. |
-| Phone Directory | One or more destinations, each with a **Name**, **Phone Number**, **Description** and **Transfer Type**. The description is what the model uses to choose between entries, so make each one distinct. |
-| Transfer Type | **Warm** announces the caller to the person answering before connecting. **Cold** connects immediately. |
-| Transfer Announcement | What the agent says to the caller as it transfers, static or prompt-based. |
-| Transfer Declined | What the agent says if the transfer is not answered or is declined. Use a static message here. |
-| Hold Audio | What the caller hears while the transfer connects. |
-| Voicemail Detection | Detects when the destination goes to voicemail, and what to do: hang up the transfer leg, leave a message, or follow a prompt. |
-| Custom SIP Headers | Headers to send with the transfer. See [SIP headers](/deploy/sip-headers). |
+Fields are listed in the order the **Transfer Call** dialog shows them.
 
-Phone numbers must be in international format, for example `+61400000000`.
+| Setting | API field | Values | Default | Notes |
+|---|---|---|---|---|
+| **Tool Name** | `name` | Letters, digits, `_`, `-`; max 255 | none | Hidden on a Transfer Call node |
+| **Description** | `description` | Up to 1,024 characters | none | When to transfer, and how to choose; see examples |
+| **Transfer Announcement** | `announcement_type` | `static`, `prompt`; **None** on a node | `static` | What the caller hears before the transfer |
+| **Announcement Message** | `announcement_message` | Free text | none | Spoken exactly |
+| **Announcement Prompt** | `announcement_prompt` | Free text | none | May reference `{{department}}` and `{{summary}}` |
+| **Transfer Declined** | `transfer_declined_type` | `static`, `prompt`; **None** on a node | `static` | What the caller hears when the transfer fails |
+| **Transfer Declined Message** | `transfer_declined_message` | Free text | "I was unable to transfer your call." | Required when static |
+| **Transfer Declined Prompt** | `transfer_declined_prompt` | Free text | none | Required when prompt-based |
+| **Voicemail Detection** | `voicemail_detection` | on, off | off | Warm transfers only |
+| **When voicemail is detected** | `voicemail_response_action_type` | `hangup`, `message`, `prompt` | `hangup` | **Hang up** or **Leave a message** (Static Message / Prompt tabs) |
+| Voicemail text | `voicemail_response_text` | Free text | none | The message, or the prompt for it |
+| **Hang up after message** | `voicemail_hangup_after_message` | on, off | off | Only with **Leave a message** |
+| **Hold Audio** | `hold_audio` | `music`, `none`; max 50 characters | `music` | What the caller hears while on hold |
+| **Custom SIP Headers** | `custom_sip_headers` | Header name and value pairs | none | See [SIP headers](/deploy/sip-headers) |
+| **Phone Directory** | `phone_directory[]` | At least one entry | none | See below |
 
-## Warm transfers
+Each **Phone Directory** entry has:
 
-In a warm transfer the agent calls the destination first and, when answered, speaks the announcement to the person before bridging the caller in. Use a prompt-based announcement that asks the agent to summarise the caller's request in one sentence, so the person picking up knows why they are getting the call.
+| Field | API field | Values | Notes |
+|---|---|---|---|
+| **Name** | `name` | Required | What the model asks for, for example "Sales" |
+| **Phone Number** | `phone_number` | Required, E.164 such as `+61400000000` | Local formats are rejected |
+| **Description** | `description` | Required | What this destination handles; used for matching |
+| **Transfer Type** | `transfer_type` | **Warm**, **Cold** | Per entry, so one directory can mix both |
 
-## When the transfer fails
+## Setting up a transfer
 
-If nobody answers, the line is busy, or the person declines, the caller comes back to the agent. The Transfer Declined message is spoken, and the agent continues. With voicemail detection set to hang up, a destination that goes to voicemail counts as declined, so the caller is never left talking to someone's voicemail.
+<Steps>
+  <Step title="Add the tool or node">
+    Single-prompt agent: expand **Functions**, click **Add**, then **Transfer Call**. Conversation flow: drag a **Transfer Call** node onto the canvas and click its transfer definition to open the same dialog, or add it under **Node Functions** on a Sub Agent node.
+  </Step>
+  <Step title="Build the directory">
+    Under **Phone Directory**, add an entry per destination with a **Name**, an E.164 **Phone Number**, a **Description** and a **Transfer Type**. Keep names short and distinct from each other; the match is a substring match, so avoid one name being contained in another.
+  </Step>
+  <Step title="Write the description">
+    In **Description**, say when to transfer, list the valid destination names, and tell the model how to choose. The directory names are included in the prompt automatically, but the rules for choosing are not.
+  </Step>
+  <Step title="Choose what the caller hears">
+    Set **Transfer Announcement** and **Transfer Declined**. Use a **Static message** for the declined line so the model cannot pad it.
+  </Step>
+  <Step title="Decide on voicemail and hold">
+    Turn on **Voicemail Detection** for warm transfers to mobiles or lines with voicemail, and choose **Hang up** or **Leave a message**. Leave **Hold Audio** on **Music** unless silence is preferred.
+  </Step>
+  <Step title="Add the failure path">
+    On a Transfer Call node, connect the **Transfer failed** edge to a node that takes a message or offers a callback. In a single-prompt agent, say in the prompt what to offer when a transfer fails.
+  </Step>
+</Steps>
 
-Plan for this. In a single-prompt agent, say in the description or the global prompt what to offer when a transfer fails, usually to take a message. In a conversation flow, the transfer node's failure transition should lead to a node that takes a message or offers a callback. A transfer node with no failure path strands the caller.
+## Prompt examples
 
-## Gating transfers by time
+A description for a directory with several teams:
 
-If transfers should only happen during business hours, do not rely on the prompt to check the time. In a flow, route to the transfer node through a branch that checks the hour, so the closed path cannot reach it. See [Patterns](/conversation-flows/patterns).
+```text
+Transfer the caller when they ask to speak to someone or when their
+request needs a person. The destination is who the caller ASKED FOR,
+never the caller's own name. Valid destinations: Sales, Accounts,
+Support. Pick the closest match even if the transcript misspells it;
+if nobody is close, ask which team they need. Do not say you are
+transferring; the tool announces it. Outside 9am to 5pm, do not
+transfer; offer to take a message instead.
+```
 
-## Limits
+A prompt-based announcement for a warm transfer:
 
-The tool description is capped at 1,024 characters. Keep directory descriptions short and discriminating rather than exhaustive.
+```text
+Tell the caller you are putting them through to {{department}} and that
+you will stay on the line until someone picks up. One sentence.
+```
+
+A static declined line:
+
+```text
+I'm sorry, I wasn't able to reach them just now. Can I take a message so
+they can call you back?
+```
+
+## In a conversation flow
+
+The Transfer Call node forces the transfer as soon as the flow enters it, using the node's instruction as the description. Its only edge is the else edge, labelled **Transfer failed**. When a warm transfer is declined, unanswered or reaches voicemail, the flow takes that edge and the next node is told whether the caller has already heard the declined line, so it does not repeat it. A successful transfer never transitions, because the call has left the agent. If the node has no **Transfer failed** edge, the flow returns to the node it came from.
+
+Do not make a Transfer Call node a global node. That exposes the transfer as a tool on every node and lets the model jump straight to it, skipping any business-hours check. Reach the transfer through a Logic Split that checks the time, so the closed path cannot get there. See [Patterns](/conversation-flows/patterns).
+
+## By API
+
+```json
+{
+  "type": "transfer_call",
+  "name": "transfer_to_team",
+  "description": "Transfer when the caller asks for a person. Valid destinations: Sales, Support.",
+  "announcement_type": "static",
+  "announcement_message": "Please hold while I put you through.",
+  "transfer_declined_type": "static",
+  "transfer_declined_message": "I'm sorry, I wasn't able to reach them. Can I take a message?",
+  "hold_audio": "music",
+  "voicemail_detection": true,
+  "voicemail_response_action_type": "hangup",
+  "phone_directory": [
+    {"name": "Sales", "phone_number": "+61400000001", "description": "New enquiries and quotes", "transfer_type": "warm"},
+    {"name": "Support", "phone_number": "+61400000002", "description": "Existing customers with a problem", "transfer_type": "cold"}
+  ]
+}
+```
+
+On a flow node the same fields sit under `config` with `"type": "transfer_call"`. See [Update Agent](/api-reference/agents/update).
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Warm or cold?">
+    Warm when the person answering needs context or might not be available: the caller waits on hold, the runtime briefs the person, and the caller comes back to the agent if nobody accepts. Cold when the destination always answers and needs no context, such as a queue or an after-hours service: it is instant, but the agent is gone and cannot recover a failed transfer.
+  </Accordion>
+  <Accordion title="What number does the destination see?">
+    The outbound leg is placed from the platform, so the destination sees a platform number rather than the original caller's number. On a warm transfer, the briefing is how the caller's identity and reason travel; include the caller's name in the summary rule in your description if staff need it.
+  </Accordion>
+  <Accordion title="The transfer went to the wrong person">
+    The model passed something that substring-matched the wrong entry, often the caller's own name or a common word shared by two entries. Make names distinct, keep descriptions specific, and open the description with "the destination is who the caller asked for, never the caller's own name".
+  </Accordion>
+  <Accordion title="The agent said it was transferring but nothing happened">
+    The model spoke a hand-off sentence instead of calling the tool. Add "do not say you are transferring; the tool announces it" to the description, and in a flow route to a Transfer Call node rather than relying on a conversation node to call the tool.
+  </Accordion>
+  <Accordion title="Why did the transfer fail?">
+    Common reasons, in rough order: the destination did not answer within the ring duration; the person declined or hung up during the briefing; the destination went to voicemail; the model's destination text matched no entry or more than one; the phone number is not in E.164 format. The declined line is spoken in every case; the model is also told the reason so it can respond.
+  </Accordion>
+  <Accordion title="The caller heard the declined line twice">
+    On warm transfers the runtime speaks the line itself and tells the model not to repeat it. If you still hear it twice, your prompt is instructing the model to apologise after every failed tool; remove that and let the declined line do the job.
+  </Accordion>
+  <Accordion title="Can I transfer only during business hours?">
+    Yes, but not by asking the prompt to check the time. In a flow, route to the transfer through a Logic Split on the hour. In a single-prompt agent, state the hours in the description and accept that a prompt rule is less reliable than a structural one.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Tools overview](/build-an-agent/tools/overview)
+- [SIP headers](/deploy/sip-headers)
+- [Voicemail](/build-an-agent/voicemail)
+- [Patterns](/conversation-flows/patterns) for hours-gated transfers
