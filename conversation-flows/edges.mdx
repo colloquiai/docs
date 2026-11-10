@@ -3,7 +3,7 @@ title: "Edges and conditions"
 description: "How the flow decides where to go next."
 ---
 
-An edge is a transition from one node to another with a condition that says when to take it. A node can have any number of conditional transitions plus one **Else**, or exactly one unconditional transition (**After User Responds** or **Skip User Response**). This page covers the three kinds of condition, the order they are evaluated in, when each node type evaluates them, and how to write conditions that fire reliably.
+An edge is a transition from one node to another with a condition that says when to take it. A node can have any number of conditional transitions plus one **Else**, or exactly one unconditional transition (**After User Responds** or **Skip User Response**). This page covers the three kinds of condition, the fixed transition a Transfer Call node carries, the order they are evaluated in, when each node type evaluates them, and how to write conditions that fire reliably.
 
 ## Three kinds of condition
 
@@ -62,6 +62,16 @@ Else is the safety net, so point it at the safest landing: usually the node that
 
 On a speaking node, Else is offered to the model as the catch-all transition, described imperatively: whenever the caller's message falls outside what this step handles, you must hand off rather than keep answering. On a silent node it is the default when no prompt condition clearly matches, and the fallback whenever the classification fails.
 
+### Fixed transitions
+
+A fixed transition is predefined by its type: it has no prompt to write and no equation to edit, and the card draws it as a row you can only wire to a destination. There is one, `transfer_unavailable`, and it exists only on a Transfer Call node, which shows it as **Transfer unavailable** with the explanation "Transition when the target contact is unavailable because it is outside of their availability window."
+
+It fires when the transfer resolved to a contact from a linked [Contacts Directory](/core-concepts/contacts) who is outside their availability window, or to a department none of whose members is inside theirs. Nothing was dialled and nothing was said; the destination node is told who was unavailable and that the caller has not been told, so it decides what to say. When the row is not wired, an unavailable destination takes the node's **Transfer failed** else edge instead.
+
+Validation keeps it in its place. Only a Transfer Call node may carry one ("Only a transfer_call node may carry a transfer_unavailable transition."), a node may carry at most one ("A transfer_call node may carry at most one transfer_unavailable transition."), and a stored one must have a `destination_node_id`; the editor drops an unwired row on save and draws it again on load, so by API either send it wired or leave it out. Its condition is `{"type": "transfer_unavailable"}` with no other fields.
+
+The attempt limit also routes a Transfer Call node, but through the else edge: once the call's failed transfers reach the agent's **Max Transfer Attempts**, a Transfer Call node skips the dial on entry and takes **Transfer failed**, or ends the call if that edge is not wired. See [Transfer call](/build-an-agent/tools/transfer-call#attempt-limit).
+
 ## Order of evaluation
 
 Within a node, equation transitions are always evaluated before prompt transitions, first match wins, and Else comes last. The editor enforces the order: an equation row cannot be dragged below a prompt row, and the API rejects a node that lists a prompt edge before an equation edge with "This node must list every equation transition condition before the prompt ones."
@@ -99,7 +109,7 @@ One exception: if the line the node delivered ends with a question mark, the tra
 | Extract Variable | On entry, after extracting | In code, on the stored values | One silent classification over the result | Default | Not allowed |
 | Custom Function | On entry, after the request | In code, on the response variables | One silent classification over the result | Default | Not allowed |
 | Send SMS | On entry, after sending | In code | One silent classification over the result | Default | After the send |
-| Transfer Call | After a failed transfer | None | None | Transfer failed | Not allowed |
+| Transfer Call | After a transfer that did not connect, or on entry once the attempt limit is reached | None | None; the fixed **Transfer unavailable** row instead | Transfer failed | Not allowed |
 | End Call | Never | None | None | None | None |
 
 Two consequences of the speaking-node order are worth knowing. If a node has an always transition, its prompt transitions never fire on a live call: the always transition is taken before the model runs. And a prompt transition is only as reliable as the end of the caller's turn: the model may decide on an interim transcript, and that decision is discarded if the caller keeps talking. Deterministic exits are immune to both.
@@ -141,7 +151,10 @@ The variable was never set on that path, a numeric comparison had a non-numeric 
 No. The API rejects the combination. A node whose only exit is a skip transition is complete.
 
 **Can I put an equation on an Else, always or skip transition?**
-No. Those conditions are fixed; equations belong on ordinary transitions.
+No. Those conditions are fixed; equations belong on ordinary transitions. The same goes for the **Transfer unavailable** row on a Transfer Call node: you can only choose where it leads.
+
+**Why did an unavailable contact take Transfer failed?**
+The **Transfer unavailable** row was not wired, so the node fell back to its else edge. Connect the row to a node that tells the caller the person is not in.
 
 **How do I transition from any node?**
 Make the destination a global node. For an exit that must exist from everywhere, such as "caller asks for a person", that is the right tool; for a transfer, keep an hours check in front of it instead.
@@ -150,4 +163,5 @@ Make the destination a global node. For an exit that must exist from everywhere,
 
 - [Nodes](/conversation-flows/nodes)
 - [Variables](/conversation-flows/variables)
+- [Transfer call](/build-an-agent/tools/transfer-call) for the unavailable outcome and the attempt limit
 - [Patterns](/conversation-flows/patterns)

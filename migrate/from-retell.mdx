@@ -55,7 +55,7 @@ If you have built agents on Retell AI, the way you think about them carries over
 | Retell tool | Colloqui tool or node | Notes |
 |---|---|---|
 | `end_call` | `end_call` | `goodbye_type` static or prompt, `goodbye_message` up to 1,000 characters |
-| `transfer_call` with one destination | `transfer_call` with a `phone_directory[]` | Several destinations in one tool, each with a name, E.164 number, description and `transfer_type` warm or cold; announcement and declined lines; `hold_audio`; custom SIP headers; voicemail handling |
+| `transfer_call` with one destination | `transfer_call` with a `phone_directory[]`, or a Transfer Call node drawing on linked Contacts Directories | Several destinations in one tool, each with a name, E.164 number, description and `transfer_type` warm or cold; announcement and declined lines; `hold_audio`; custom SIP headers; voicemail handling. Staff belong in a [Contacts Directory](/core-concepts/contacts), with availability windows and per-person transfer settings, linked under the agent's **Contacts** |
 | `press_digit` | `press_ivr` | `pause_detection_delay_ms` 1,000 to 6,000; API only, no dialog |
 | `send_sms` | `send_sms` | `content_type` prompt or static; `send_to` caller or a fixed mobile number |
 | `extract_dynamic_variable` | `extract_dynamic_variable` | Types string, number, integer, boolean, enum with choices |
@@ -70,7 +70,7 @@ If you have built agents on Retell AI, the way you think about them carries over
 | `logic_split` node | `branch` node (**Logic Split**) | Equation edges plus an else edge; no instruction |
 | `extract_dynamic_variables` node | `extract_dynamic_variable` node (**Extract Variable**) | Can run in the background |
 | `function` node referencing a tool | `custom_function` node (**Custom Function**) | The function's configuration is inline in the node's `config` |
-| `transfer_call` node | `transfer_call` node (**Transfer Call**) | Multi-destination directory; the else edge is the failure path |
+| `transfer_call` node | `transfer_call` node (**Transfer Call**) | Custom entries plus the agent's linked Contacts Directories; **Transfer failed** is the else edge, and a fixed **Transfer unavailable** edge fires when a contact is outside their availability window |
 | `sms` node | `send_sms` node (**Send SMS**) | |
 | `end` node | `end_call` node (**End Call**) | |
 | Sub-agent or component | `sub_agent` node (**Sub Agent**) | A conversation node that also carries tools; the only node type that does |
@@ -99,7 +99,7 @@ Plan replacements for these before you move:
 - **Guardrail topic lists.** Build guardrail objects with examples, keywords, a threshold and a response, then link them to the agent as input or output guardrails.
 - **Per-agent silence timeout, pronunciation dictionary, caller DTMF options.**
 
-Colloqui has a few things Retell does not: a multi-destination phone directory on one transfer tool, workspaces with roles and per-module access, a built-in current-time action and time variables when the agent has a timezone, and per-agent bundles.
+Colloqui has a few things Retell does not: a multi-destination phone directory on one transfer tool, a workspace Contacts Directory of people and departments with availability windows that transfer nodes and SMS tools draw on, workspaces with roles and per-module access, a built-in current-time action and time variables when the agent has a timezone, and per-agent bundles.
 
 ## Step-by-step migration
 
@@ -111,7 +111,7 @@ Colloqui has a few things Retell does not: a multi-destination phone directory o
     Pick the matching type in **Create Agent**. Set the global prompt, first speaker and welcome message, then choose the model, voice and transcription from the dashboard lists. A payment method must be on the workspace first.
   </Step>
   <Step title="Rebuild the tools">
-    Single prompt: add each tool under **Functions**. Collapse several transfer tools into one Transfer Call tool with a directory entry per destination, and convert numbers to E.164. Rewrite each custom function inline, with its parameters as a JSON schema and its response fields as variables. Press IVR tools go in by API.
+    Single prompt: add each tool under **Functions**. Collapse several transfer tools into one Transfer Call tool with a directory entry per destination, and convert numbers to E.164. In a flow, put the people and teams Retell's transfer tools pointed at into a Contacts Directory, with their hours as availability windows, link it under the agent's **Contacts**, and keep custom entries for queues and services; the Transfer Call node then needs no numbers of its own. Rewrite each custom function inline, with its parameters as a JSON schema and its response fields as variables. Press IVR tools go in by API.
   </Step>
   <Step title="Rebuild the flow">
     Create each node on the canvas with the same instruction text. Put each edge on its source node, equation edges first. Set the else edge on every node that has prompt edges, and use always or skip-response edges where the Retell flow relied on them, remembering that a node takes one of the three forms, not a mix. Mark global nodes with a **Global Node** condition. Link node-level knowledge bases where the Retell flow had them.
@@ -181,7 +181,7 @@ The method is unchanged. Critical rules at the top of the prompt. One question p
 ## Checklist
 
 - Create the agent with the matching type, on a workspace with a payment method.
-- Rebuild tools as Colloqui tools or nodes; collapse transfer tools into one directory with E.164 numbers.
+- Rebuild tools as Colloqui tools or nodes; collapse transfer tools into one directory with E.164 numbers, or into a Contacts Directory linked to the agent.
 - Move each edge onto its source node, equation edges first, and give every node one kind of exit.
 - Choose provider, model and voice from the Colloqui catalogue.
 - Rewrite handbook behaviour into the prompt.

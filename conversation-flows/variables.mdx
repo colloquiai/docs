@@ -52,6 +52,18 @@ Setting a timezone also does two things in the background. The global prompt gai
 
 For an hours check, compare `{{current_hour}}` with a numeric operator: `{{current_hour}} >= 9` and `{{current_hour}} < 17.5`. Day-of-week is not exposed as a number; extract it with an Extract Variable node from the calendar line, or have a Custom Function return it, and branch on that.
 
+## Reserved variables
+
+These names are maintained by the platform, alongside `current_node` and `previous_node` above. They come into play when the agent is linked to a [Contacts Directory](/core-concepts/contacts). Do not extract into them.
+
+| Variable | Set when | Value |
+|---|---|---|
+| `transfer_attempts` | A Transfer Call node's transfer does not connect, for any reason | Integer count of failed transfers so far in the call, across every Transfer Call node. Compares numerically. Unset until the first failure, so test `exists` or treat not-set as zero |
+| `transfer_target_<field>` | A transfer resolves a directory contact, directly or as the department member chosen | One variable per field of that contact: `transfer_target_name`, `transfer_target_phone_number`, `transfer_target_mobile_number`, `transfer_target_email_address`, `transfer_target_availability_start`, `transfer_target_availability_end`, `transfer_target_availability_timezone`, `transfer_target_transfer_type`, `transfer_target_transfer_number_type`, `transfer_target_id`, `transfer_target_contact_group_id`, `transfer_target_department_ids`. Set before the availability check, so they are available after **Transfer unavailable** too. Cleared and rewritten on the next transfer that resolves a contact; a custom entry sets none |
+| `contacts.<contact_id>.<field>` | Resolved on demand, nothing stored | The named field of any contact in the agent's linked directories, read from the call's directory snapshot when the text is rendered. `<field>` is one of the contact fields above, such as `mobile_number`. Usable anywhere a variable is: prompts, static lines, SMS content, Custom Function URLs and bodies, equations. The contact page has **Copy as variable** beside Phone, Mobile and Email |
+
+A `contacts.` placeholder whose contact is not in a linked directory, or whose field name is not a contact field, is left as its literal text, like any unset variable. A stored variable of the same name wins over the on-demand lookup.
+
 ## Extracted variables
 
 [Extract Variable](/build-an-agent/tools/extract-dynamic-variable) nodes and tools create variables from the conversation. Each has a **Name**, a **Type** and a **Description**.
@@ -123,6 +135,24 @@ A prompt instruction that uses position:
 You are in the {{current_node}} step and the caller came from {{previous_node}}.
 ```
 
+A static line after a **Transfer unavailable** edge that names the person and when they are back:
+
+```text
+{{transfer_target_name}} isn't available right now and will be back at {{transfer_target_availability_start}}. Would you like to leave a message, or shall I try someone else?
+```
+
+A static SMS to the caller that includes a contact's direct number, read from the directory:
+
+```text
+Thanks for calling. You can reach Jane directly on {{contacts.01JBX9Z8R7Q4K2M6N3P5T8V0W1.mobile_number}} between 9am and 5pm.
+```
+
+An equation on a Logic Split in front of a second Transfer Call node, so the caller is offered a message instead after one failure:
+
+```text
+{{transfer_attempts}}  is at least  1
+```
+
 ## By API
 
 Variables are not objects in the API. They are defined inside the node that produces them: `config.variables[]` on an `extract_dynamic_variable` node or tool, and `config.custom_function_variables` on a `custom_function` node or tool. Anything else is a `{{name}}` reference in a string field.
@@ -145,17 +175,21 @@ Variables are not objects in the API. They are defined inside the node that prod
 Not at the agent level. Give the extraction description a fallback, branch on `exists`, or have a Custom Function return the default.
 
 **Is there a variable for the caller's name or any CRM field?**
-No. Only the built-ins above exist at call start; everything else comes from extraction or an API response.
+No. Only the built-ins above exist at call start; everything else comes from extraction or an API response. Staff details are the exception: a contact in a linked directory is readable as `contacts.<contact_id>.<field>`.
 
 **Why was a number read as "four hundred and twelve million"?**
 It was stored as digits with no spaces. Have the extraction description produce spaced digits for anything that will be spoken.
 
 **Does a single-prompt agent have variables?**
-Yes: the built-ins, the time variables, and anything its Extract Variable and Custom Function tools save. `current_node` and `previous_node` are empty.
+Yes: the built-ins, the time variables, `contacts.<contact_id>.<field>`, and anything its Extract Variable and Custom Function tools save. `current_node` and `previous_node` are empty, and `transfer_attempts` and `transfer_target_*` are set only by Transfer Call nodes in a flow.
+
+**Why does `{{transfer_target_name}}` show the previous person?**
+The latest transfer went to a custom entry, which sets no `transfer_target_*` values, so the ones from the earlier contact remain. Put people in a directory rather than custom entries if the nodes after the transfer rely on these variables.
 
 ## Related
 
 - [Extract variable](/build-an-agent/tools/extract-dynamic-variable)
 - [Custom function](/build-an-agent/tools/custom-function)
+- [Contacts Directory](/core-concepts/contacts) for the contacts behind `contacts.` and `transfer_target_*`
 - [Edges and conditions](/conversation-flows/edges)
 - [Patterns](/conversation-flows/patterns)

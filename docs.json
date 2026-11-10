@@ -28,6 +28,7 @@
               "core-concepts/agents",
               "core-concepts/tools",
               "core-concepts/knowledge-bases",
+              "core-concepts/contacts",
               "core-concepts/numbers",
               "core-concepts/prompt-engineering",
               "core-concepts/prompt-examples"
@@ -147,6 +148,36 @@
             "pages": [
               "api-reference/call-history/list",
               "api-reference/call-history/show"
+            ]
+          },
+          {
+            "group": "Contacts Directories",
+            "pages": [
+              "api-reference/contact-groups/list",
+              "api-reference/contact-groups/create",
+              "api-reference/contact-groups/show",
+              "api-reference/contact-groups/update",
+              "api-reference/contact-groups/delete"
+            ]
+          },
+          {
+            "group": "Contacts",
+            "pages": [
+              "api-reference/contacts/list",
+              "api-reference/contacts/create",
+              "api-reference/contacts/show",
+              "api-reference/contacts/update",
+              "api-reference/contacts/delete"
+            ]
+          },
+          {
+            "group": "Departments",
+            "pages": [
+              "api-reference/contact-departments/list",
+              "api-reference/contact-departments/create",
+              "api-reference/contact-departments/show",
+              "api-reference/contact-departments/update",
+              "api-reference/contact-departments/delete"
             ]
           },
           {

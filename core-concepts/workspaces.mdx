@@ -40,8 +40,10 @@ The **Roles** page in settings shows the same three assignable roles with a shor
 
 | Action | Owner | Admin | Developer | Member |
 |---|---|---|---|---|
-| View agents, numbers, knowledge bases, guardrails, call history, analytics | Yes | Yes | With module | With module |
+| View agents, numbers, knowledge bases, guardrails, contacts directories, call history, analytics | Yes | Yes | With module | With module |
 | Create, edit, delete, publish agents; assign numbers; manage knowledge bases and guardrails | Yes | Yes | With module | No |
+| Create, rename and delete a Contacts Directory | Yes | Yes | No | No |
+| Add, edit and remove the contacts and departments in a directory | Yes | Yes | With module, for directories used by an agent they can access | No |
 | Register or manage webhooks | Yes | Yes | Yes | Yes |
 | Create and revoke API keys | Yes | Yes | No | No |
 | Billing: payment method, bundles, invoices | Yes | Yes | No | No |
@@ -52,20 +54,21 @@ The **Roles** page in settings shows the same three assignable roles with a shor
 
 ## Modules and agent access
 
-Developers and members only see the parts of the workspace they have been granted. When you invite or edit one of them, the dialog shows a **Modules** multi-select with six choices:
+Developers and members only see the parts of the workspace they have been granted. When you invite or edit one of them, the dialog shows a **Modules** multi-select with seven choices:
 
 | Module | API value | Unlocks |
 |---|---|---|
 | Agents | `agents` | The Agents page and agent editor |
 | Knowledge base | `knowledge_base` | Knowledge bases |
 | Guardrails | `guardrails` | Guardrails |
+| Contacts | `contacts` | [Contacts Directory](/core-concepts/contacts). Viewing and, for developers, editing the contents of directories used by their agents; creating, renaming and deleting a directory stays with owners and admins |
 | Phone numbers | `phone_numbers` | Phone Numbers |
 | Call history | `call_history` | Call History |
 | Analytics | `analytics` | Analytics |
 
 A module that is not granted disappears from that person's sidebar, and any request for it, in the dashboard or by API, is refused. Owners and admins always have every module.
 
-When **Agents** is among the modules, an **Agent Access** multi-select appears. Leave it empty to grant access to every agent in the workspace, or pick specific agents to limit the person to those. An agent that is not listed cannot be viewed, edited or assigned to a number by that person. This is how you give an external builder access to one client's agent without exposing the others.
+When **Agents** is among the modules, an **Agent Access** multi-select appears. Leave it empty to grant access to every agent in the workspace, or pick specific agents to limit the person to those. An agent that is not listed cannot be viewed, edited or assigned to a number by that person, and a Contacts Directory is visible to them only if one of their agents uses it. This is how you give an external builder access to one client's agent without exposing the others.
 
 ## Inviting and managing members
 

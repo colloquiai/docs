@@ -16,6 +16,8 @@ Tools let the agent act: hang up, transfer, press keypad digits, send a text, sa
 | Extract Dynamic Variable | Saves values from the conversation as variables | [Extract variable](/build-an-agent/tools/extract-dynamic-variable) |
 | Custom Function | Makes an HTTP request to your API and uses the response | [Custom function](/build-an-agent/tools/custom-function) |
 
+Two of these can draw on the workspace's [Contacts Directories](/core-concepts/contacts), address books of people and departments with availability windows, once the agent is linked to one under **Contacts**. A Transfer Call node then offers every contact and department as a destination alongside its own custom entries, declines to dial someone who is off shift and leaves by a **Transfer unavailable** edge instead, and stops after the agent's **Max Transfer Attempts**. A Send SMS tool or node can send to **Contacts / Departments** picked from the same directories, one message per person. Any prompt or message can also read a contact's details with `{{contacts.<contact_id>.<field>}}`.
+
 ## Where tools live
 
 <Frame caption="The Functions panel lists every tool on a single-prompt agent.">

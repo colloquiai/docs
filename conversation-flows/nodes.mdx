@@ -15,10 +15,10 @@ A node is one step of the call. Every node has a name and a way out; most have a
 | Extract Variable | No | Yes, Else fixed | No | Variables | No | Yes | No | Yes | No |
 | Send SMS | No | Yes | Yes | Message | No | No | No | No | No |
 | Logic Split | No | Yes, Else fixed | No | No | No | No | No | Yes | No |
-| Transfer Call | No | Transfer failed only | No | Transfer | No | No | No | No | No |
+| Transfer Call | No | Transfer unavailable and Transfer failed, both fixed | No | Transfer | No | No | No | No | No |
 | End Call | Prompt or static | None | No | No | No | No | No | No | No |
 
-"Else fixed" means the card always shows an **Else** row and does not let you delete it: these nodes act and then route, and the flow must have somewhere to go when nothing matches. Any node type can be made a [global node](#global-nodes).
+"Else fixed" means the card always shows an **Else** row and does not let you delete it: these nodes act and then route, and the flow must have somewhere to go when nothing matches. A Transfer Call node goes further: its two rows are fixed and no others can be added. Any node type can be made a [global node](#global-nodes).
 
 The **Node Settings** tab shows only the sections that apply to the selected node, so the table above is also what you will see there.
 
@@ -164,11 +164,18 @@ A Logic Split cannot take an always or skip transition.
   <img src="/images/dashboard/flow-transfer-node.png" alt="A Transfer Call node selected" />
 </Frame>
 
-Transfers to a destination in its directory. The card shows **Configure transfer**, the same dialog as the [Transfer call](/build-an-agent/tools/transfer-call) tool: the phone directory, announcement, declined message, hold audio, SIP headers and voicemail handling.
+Transfers to a destination in its directory. The card shows **Configure transfer**, the same dialog as the [Transfer call](/build-an-agent/tools/transfer-call) tool: the custom entries, announcement, declined message, hold audio, SIP headers and voicemail handling. The directory the model chooses from is the node's **Custom Entries** plus every contact and department of the directories linked under the agent's **Contacts** settings, so a node can have no custom entries at all. See [Contacts Directory](/core-concepts/contacts).
 
-On entry the transfer starts immediately. A successful transfer ends the flow. A declined, unanswered or failed transfer returns the caller to the flow through the node's single transition, labelled **Transfer failed**, with a note telling the next node whether the caller has already been told. If voicemail detection is set to hang up, or to hang up after a message, the call ends at voicemail and the transition is not taken; the card shows a warning icon when that is the case.
+On entry the transfer starts immediately. A successful transfer ends the flow. Otherwise the node leaves by one of two fixed transition rows, which cannot be deleted or edited, only wired, and which no other rows can join:
 
-The Transfer failed transition must lead somewhere useful, usually a node that offers to take a message. Do not make a Transfer Call node global: it would be offered from every node and bypass any hours check in front of it.
+- **Transfer unavailable** ("Transition when the target contact is unavailable because it is outside of their availability window."): the contact, or every member of the department, is off shift. Nothing was dialled and nothing was said; the next node is told who was unavailable. An unwired row is not saved and is drawn again on load; while unwired, this outcome takes **Transfer failed**.
+- **Transfer failed**, the else edge: declined, unanswered, voicemail, no matching entry, or skipped because the call has reached the agent's **Max Transfer Attempts**. The next node is told whether the caller has already heard the declined line. Unwired, the flow returns to the node it came from, except that the attempt limit ends the call instead.
+
+If voicemail detection is set to hang up, or to hang up after a message, the call ends at voicemail and neither transition is taken; the card shows a warning icon when that is the case.
+
+Every non-successful outcome adds one to the call-wide `transfer_attempts` variable, shared by all Transfer Call nodes, and a transfer that resolves a directory contact publishes `transfer_target_*` variables for the nodes that follow. See [Variables](/conversation-flows/variables#reserved-variables).
+
+Both transitions must lead somewhere useful, usually a node that offers to take a message or names an alternative. Do not make a Transfer Call node global: it would be offered from every node and bypass any hours check in front of it.
 
 ## End Call
 
@@ -238,6 +245,37 @@ An Extract Variable node with a typing sound and an Else transition:
   "else_edge": {
     "id": "extract-details-else",
     "destination_node_id": "01JCX5R2A5M1Q9W3V7K8Y2T4ZE",
+    "transition_condition": { "type": "prompt", "prompt": "Else" }
+  }
+}
+```
+
+A Transfer Call node with no custom entries, relying on the agent's linked directories, with both fixed rows wired:
+
+```json
+{
+  "id": "01JCX5R2A5M1Q9W3V7K8Y2T4ZG",
+  "name": "Transfer to Staff",
+  "type": "transfer_call",
+  "instruction": null,
+  "config": {
+    "type": "transfer_call",
+    "announcement_type": "static",
+    "announcement_message": "Please hold while I put you through.",
+    "transfer_declined_type": "static",
+    "transfer_declined_message": "I'm sorry, I wasn't able to reach them.",
+    "phone_directory": null
+  },
+  "edges": [
+    {
+      "id": "transfer-staff-unavailable",
+      "destination_node_id": "01JCX5R2A5M1Q9W3V7K8Y2T4ZH",
+      "transition_condition": { "type": "transfer_unavailable" }
+    }
+  ],
+  "else_edge": {
+    "id": "transfer-staff-else",
+    "destination_node_id": "01JCX5R2A5M1Q9W3V7K8Y2T4ZJ",
     "transition_condition": { "type": "prompt", "prompt": "Else" }
   }
 }

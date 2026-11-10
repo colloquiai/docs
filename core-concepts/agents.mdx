@@ -35,6 +35,7 @@ The agent object has the same shape in the dashboard and the API. Each block bel
 | Tools | `llm_config.tools[]` | End Call, Transfer Call, Press IVR, Send SMS, Extract Dynamic Variable and Custom Function definitions | [Tools](/core-concepts/tools) |
 | Knowledge bases | `llm_config.knowledge_base_ids[]`, `knowledge_base_config` | Which knowledge bases are linked; `chunks_to_retrieve` (1 to 10) and `similarity_threshold` (0.30 to 0.95) | [Knowledge bases](/core-concepts/knowledge-bases) |
 | Guardrails | `guardrails_config` | `guardrails[]` linking workspace guardrails with a `source` of input and/or output, and the `semantic_guardrail` toggle | [Guardrails](/build-an-agent/guardrails) |
+| Contacts | `contacts_config` | `group_ids[]` of the linked Contacts Directories (replaces the list; must be this workspace's) and `max_transfer_attempts` (1 to 10, or `null` for the default of 2) | [Contacts Directory](/core-concepts/contacts) |
 | Flow | `multi_node_config` | `start_node_id` and `nodes[]`; present only on conversation-flow agents | [Nodes](/conversation-flows/nodes) |
 | Numbers | `numbers`, `inbound_numbers`, `outbound_numbers` | The numbers assigned to the agent, read only | [Phone numbers](/core-concepts/numbers) |
 | Versioning | `version`, `published_at` | The current published version number, or `null` for a draft, and when it was published | [Versioning](/versioning/overview) |

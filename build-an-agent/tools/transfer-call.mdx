@@ -3,13 +3,13 @@ title: "Transfer call"
 description: "Hand the caller to a person, with a directory of destinations, warm or cold."
 ---
 
-Transfer Call connects the caller to a phone number. One tool holds a directory of destinations, each with a description the model uses to choose between them and a transfer type that decides whether the person answering is briefed first. A typical use is a reception agent that puts sales enquiries through to the sales team with a warm introduction, and everything else through to the office line cold.
+Transfer Call connects the caller to a phone number. One tool holds a directory of destinations, each with a description the model uses to choose between them and a transfer type that decides whether the person answering is briefed first. A typical use is a reception agent that puts sales enquiries through to the sales team with a warm introduction, and everything else through to the office line cold. On a Transfer Call node the directory can also come from the agent's linked [Contacts Directories](/core-concepts/contacts): every contact and department becomes a destination with its own availability window and transfer settings, and nothing has to be typed into the node.
 
 ## How it works
 
 The model calls the tool with the destination it wants (and, for warm transfers, a one-line summary of why). The runtime then:
 
-1. **Picks the directory entry.** If the directory has one entry, it is used whatever the model asked for. Otherwise the model's text is matched, case-insensitively, as a substring of each entry's **Name** and **Description**. No match or more than one match is a failure, and the model is told to say the declined line.
+1. **Picks the directory entry.** If the directory has one entry, it is used whatever the model asked for. Otherwise the model's text is matched, case-insensitively, as a substring of each entry's **Name** and **Description**. No match or more than one match is a failure, and the model is told to say the declined line. When nothing in the directory fits what the caller asked for, the model is told to pass the literal flag `entry_does_not_exist` rather than guess; the tool then fails and the model is told "There is no entry found with that name in the directory."
 2. **Speaks the announcement to the caller.** A **Static message** is spoken word for word. A **Prompt-based** announcement is written by a separate model call that knows only the destination name, the summary and your instructions, and is held to one or two sentences. Either way the line cannot be interrupted. Set to **None** (flow nodes only) nothing is said.
 3. **Transfers.** What happens next depends on the entry's **Transfer Type**.
 
@@ -37,6 +37,34 @@ With **Voicemail Detection** on, the briefing agent listens for a voicemail gree
 
 With detection off, a destination that goes to voicemail is treated as a decline and the caller hears the declined line.
 
+## Directory from linked contacts
+
+On a Transfer Call node, the directory the model chooses from is built when the call starts: the node's **Custom Entries** first, then every contact and every department of each directory linked under the agent's **Contacts** settings. A contact entry is described to the model as "Use this number when transferring to [name]."; a department entry gets the same prefix followed by the department's own description. The model is then told "VALID DEPARTMENTS. The `department` argument MUST be exactly one of:" with one line per entry, so the names in your directories are what callers need to ask for, and the description you give a department is what makes "I need to talk to someone about my bill" land in Billing.
+
+Custom entries and directory entries are matched the same way. Use custom entries for one-off destinations that do not belong in a directory, such as an after-hours answering service, and keep people and teams in a directory so their numbers and hours are maintained in one place. A node can have no custom entries at all and rely on the directories alone. See [Contacts Directory](/core-concepts/contacts).
+
+The Transfer Call tool on a single-prompt agent, and a Transfer Call tool added under **Node Functions** on a Sub Agent node, dial only their own entries.
+
+### Resolving a contact
+
+A contact is dialled on the number its **Number to use** selects, the phone number when unset. Its **Type** decides warm or cold; when unset the transfer is cold. The contact's name is what the announcement names and what `{{department}}` resolves to in an announcement prompt.
+
+### Availability and the unavailable outcome
+
+When the chosen entry is a contact with an availability window and the current time, in the contact's own timezone, is outside it, the transfer is not attempted. Nothing is dialled, no announcement or declined line is spoken, and the flow leaves the node by its **Transfer unavailable** edge. The next node is told "[name] is not available right now, so the transfer was not attempted", that nothing has been said to the caller, and not to attempt the same transfer again unless the caller asks. That node decides what to say: offer a message, try a department, or read back when the person is next in from `{{transfer_target_availability_start}}`. If **Transfer unavailable** is not wired, the outcome takes **Transfer failed** instead. A contact with no window is always available.
+
+### Departments
+
+A department entry resolves to one of its members at the moment of the transfer. Only members inside their availability window are candidates; each is dialled on the number their own **Number to use** selects, with their own **Type**, defaulting to phone number and cold; and one candidate is picked at random per attempt, so repeated transfers to a busy team spread across it. A department with no available member is unavailable, with the outcome above.
+
+### Attempt limit
+
+Every transfer that does not connect, whether declined, unanswered, reaching voicemail, unavailable or failed for any other reason, adds one to the call-wide `transfer_attempts` variable, shared by every Transfer Call node in the flow. When the count reaches the agent's **Max Transfer Attempts** (2 unless changed under **Contacts**), a Transfer Call node skips the dial on entry and leaves by **Transfer failed**, telling the next node that the limit was reached, that nothing has been said to the caller, and not to offer another transfer for the rest of the call. A node with no **Transfer failed** destination ends the call instead, speaking the static **Transfer Declined Message** as its goodbye if there is one. This is what stops a caller cycling between "try Sales" and "try Support" indefinitely; branch on `{{transfer_attempts}}` with an equation condition to change course earlier.
+
+### Variables published by a transfer
+
+When a transfer resolves to a contact, directly or as the member chosen for a department, every field of that contact is stored as `transfer_target_<field>`: `transfer_target_name`, `transfer_target_phone_number`, `transfer_target_mobile_number`, `transfer_target_email_address`, `transfer_target_availability_start`, `transfer_target_availability_end`, `transfer_target_availability_timezone`, `transfer_target_transfer_type`, `transfer_target_transfer_number_type`, `transfer_target_id`, `transfer_target_contact_group_id` and `transfer_target_department_ids`. They are set before the availability check, so the node after a **Transfer unavailable** edge can say who was unavailable and when they are back. Values from an earlier transfer in the same call are cleared first. A custom entry sets none of them. See [Variables](/conversation-flows/variables#reserved-variables).
+
 ## Settings
 
 Fields are listed in the order the **Transfer Call** dialog shows them.
@@ -57,9 +85,9 @@ Fields are listed in the order the **Transfer Call** dialog shows them.
 | **Hang up after message** | `voicemail_hangup_after_message` | on, off | off | Only with **Leave a message** |
 | **Hold Audio** | `hold_audio` | `music`, `none`; max 50 characters | `music` | What the caller hears while on hold |
 | **Custom SIP Headers** | `custom_sip_headers` | Header name and value pairs | none | See [SIP headers](/deploy/sip-headers) |
-| **Phone Directory** | `phone_directory[]` | At least one entry | none | See below |
+| **Phone Directory** | `phone_directory[]` | Zero or more entries | none | The **Custom Entries**; optional, since a node can rely on linked directories |
 
-Each **Phone Directory** entry has:
+Under **Phone Directory** the dialog notes that any contact in the agent's contact directory will be used to transfer calls, and that a custom entry is for a one-off destination that is not in the directory. **Add Custom Entry** adds one; the entries are listed under a **Custom Entries** heading. Each has:
 
 | Field | API field | Values | Notes |
 |---|---|---|---|
@@ -78,7 +106,7 @@ Each **Phone Directory** entry has:
     Single-prompt agent: expand **Functions**, click **Add**, then **Transfer Call**. Conversation flow: drag a **Transfer Call** node onto the canvas and click its transfer definition to open the same dialog, or add it under **Node Functions** on a Sub Agent node.
   </Step>
   <Step title="Build the directory">
-    Under **Phone Directory**, add an entry per destination with a **Name**, an E.164 **Phone Number**, a **Description** and a **Transfer Type**. Keep names short and distinct from each other; the match is a substring match, so avoid one name being contained in another.
+    For people and teams, put them in a [Contacts Directory](/core-concepts/contacts) and link it under the agent's **Contacts** settings; a Transfer Call node picks them up automatically. For anything else, under **Phone Directory** click **Add Custom Entry** and give each destination a **Name**, an E.164 **Phone Number**, a **Description** and a **Transfer Type**. Keep names short and distinct from each other across both sources; the match is a substring match, so avoid one name being contained in another.
   </Step>
   <Step title="Write the description">
     In **Description**, say when to transfer, list the valid destination names, and tell the model how to choose. The directory names are included in the prompt automatically, but the rules for choosing are not.
@@ -89,8 +117,8 @@ Each **Phone Directory** entry has:
   <Step title="Decide on voicemail and hold">
     Turn on **Voicemail Detection** for warm transfers to mobiles or lines with voicemail, and choose **Hang up** or **Leave a message**. Leave **Hold Audio** on **Music** unless silence is preferred.
   </Step>
-  <Step title="Add the failure path">
-    On a Transfer Call node, connect the **Transfer failed** edge to a node that takes a message or offers a callback. In a single-prompt agent, say in the prompt what to offer when a transfer fails.
+  <Step title="Add the failure paths">
+    On a Transfer Call node, connect the **Transfer failed** edge to a node that takes a message or offers a callback, and the **Transfer unavailable** edge to a node that says the person is not in and offers an alternative. In a single-prompt agent, say in the prompt what to offer when a transfer fails.
   </Step>
 </Steps>
 
@@ -128,7 +156,12 @@ they can call you back?
   <img src="/images/dashboard/flow-transfer-node.png" alt="A Transfer Call node and its settings in a flow" />
 </Frame>
 
-The Transfer Call node forces the transfer as soon as the flow enters it, using the node's instruction as the description. Its only edge is the else edge, labelled **Transfer failed**. When a warm transfer is declined, unanswered or reaches voicemail, the flow takes that edge and the next node is told whether the caller has already heard the declined line, so it does not repeat it. A successful transfer never transitions, because the call has left the agent. If the node has no **Transfer failed** edge, the flow returns to the node it came from.
+The Transfer Call node forces the transfer as soon as the flow enters it. Its card has two fixed transition rows that cannot be deleted or edited, only wired, and no other rows can be added:
+
+- **Transfer unavailable**, described on the card as "Transition when the target contact is unavailable because it is outside of their availability window." It fires when the resolved contact, or every member of the resolved department, is outside their window; nothing was dialled and nothing was said.
+- **Transfer failed**, the else edge. It fires when a transfer is declined, unanswered, reaches voicemail, matches no entry or more than one, or is skipped because the attempt limit was reached. The next node is told whether the caller has already heard the declined line, so it does not repeat it.
+
+A successful transfer never transitions, because the call has left the agent. If **Transfer failed** is not wired, the flow returns to the node it came from. If **Transfer unavailable** is not wired, an unavailable destination takes **Transfer failed** instead; the unwired row is not stored on save and reappears when the flow is loaded.
 
 Do not make a Transfer Call node a global node. That exposes the transfer as a tool on every node and lets the model jump straight to it, skipping any business-hours check. Reach the transfer through a Logic Split that checks the time, so the closed path cannot get there. See [Patterns](/conversation-flows/patterns).
 
@@ -153,7 +186,7 @@ Do not make a Transfer Call node a global node. That exposes the transfer as a t
 }
 ```
 
-On a flow node the same fields sit under `config` with `"type": "transfer_call"`. See [Update Agent](/api-reference/agents/update).
+`phone_directory` is optional: a node that relies on linked directories can omit it or send `null`. On a flow node the same fields sit under `config` with `"type": "transfer_call"`, and the node's `edges` carry the fixed **Transfer unavailable** row as a transition with `"type": "transfer_unavailable"`; see [Nodes](/conversation-flows/nodes#transfer-call). Directories are linked with the agent's `contacts_config`; see [Contacts Directory](/core-concepts/contacts#by-api) and [Update Agent](/api-reference/agents/update).
 
 ## FAQ
 
@@ -171,7 +204,16 @@ On a flow node the same fields sit under `config` with `"type": "transfer_call"`
     The model spoke a hand-off sentence instead of calling the tool. Add "do not say you are transferring; the tool announces it" to the description, and in a flow route to a Transfer Call node rather than relying on a conversation node to call the tool.
   </Accordion>
   <Accordion title="Why did the transfer fail?">
-    Common reasons, in rough order: the destination did not answer within the ring duration; the person declined or hung up during the briefing; the destination went to voicemail; the model's destination text matched no entry or more than one; the phone number is not in E.164 format. The declined line is spoken in every case; the model is also told the reason so it can respond.
+    Common reasons, in rough order: the destination did not answer within the ring duration; the person declined or hung up during the briefing; the destination went to voicemail; the model's destination text matched no entry or more than one, or it passed `entry_does_not_exist`; a directory contact has no number of the type their **Number to use** selects; the phone number is not in E.164 format. The declined line is spoken in every case; the model is also told the reason so it can respond.
+  </Accordion>
+  <Accordion title="The transfer was not attempted and nothing was said">
+    Two outcomes dial nothing and speak nothing, leaving the next node to explain. Either the contact, or every member of the department, was outside their availability window, and the flow took **Transfer unavailable**; or the call had already reached **Max Transfer Attempts**, and the node left by **Transfer failed** with a note that the limit was hit. Check the windows and timezones on the contacts, and give the nodes after both edges a line that tells the caller what happens next.
+  </Accordion>
+  <Accordion title="Which number does a directory contact get dialled on?">
+    The one their **Number to use** selects: phone number or mobile number. With neither transfer setting set, the phone number, cold. For a department, each available member is dialled on their own setting, and one member is chosen at random per attempt.
+  </Accordion>
+  <Accordion title="The agent keeps offering transfers that keep failing">
+    Lower **Max Transfer Attempts** under the agent's **Contacts** settings; the default is 2. Once reached, every Transfer Call node skips the dial and the model is told not to offer another transfer. For a different response after the first failure, branch on `{{transfer_attempts}}` with an equation condition.
   </Accordion>
   <Accordion title="The caller heard the declined line twice">
     On warm transfers the runtime speaks the line itself and tells the model not to repeat it. If you still hear it twice, your prompt is instructing the model to apologise after every failed tool; remove that and let the declined line do the job.
@@ -184,6 +226,8 @@ On a flow node the same fields sit under `config` with `"type": "transfer_call"`
 ## Related
 
 - [Tools overview](/build-an-agent/tools/overview)
+- [Contacts Directory](/core-concepts/contacts) for contacts, departments and availability windows
+- [Variables](/conversation-flows/variables) for `transfer_attempts` and `transfer_target_*`
 - [SIP headers](/deploy/sip-headers)
 - [Voicemail](/build-an-agent/voicemail)
 - [Patterns](/conversation-flows/patterns) for hours-gated transfers
