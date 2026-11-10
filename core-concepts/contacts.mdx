@@ -7,6 +7,10 @@ A Contacts Directory is a workspace-level address book: contacts (people) and de
 
 ## Directories, contacts and departments
 
+<Frame caption="A contacts directory: the Contacts tab with phone, mobile, email, department, transfer settings and availability per contact.">
+  <img src="/images/dashboard/contacts-directory.png" alt="A contacts directory: the Contacts tab with phone, mobile, email, department, transfer settings and availability per contact" />
+</Frame>
+
 | Object | API name | What it holds |
 |---|---|---|
 | Directory | contact group | A name (up to 255 characters). Belongs to one workspace. Deleting a directory removes its contacts and departments. |
@@ -16,6 +20,10 @@ A Contacts Directory is a workspace-level address book: contacts (people) and de
 A contact and a department are both transfer destinations. Transferring to a contact dials that person; transferring to a department dials one of its available members.
 
 ## Contact settings
+
+<Frame caption="The Add Contact dialog: Contact Information, Transfer, Departments and Availability.">
+  <img src="/images/dashboard/contacts-add-contact.png" alt="The Add Contact dialog: Contact Information, Transfer, Departments and Availability" />
+</Frame>
 
 Fields as the **Add Contact** dialog groups them.
 
@@ -46,11 +54,19 @@ When a transfer resolves to a contact outside their window, nothing is dialled. 
 
 **Type** decides whether the person is briefed before the caller is bridged (warm) or the caller is redirected (cold); the mechanics are on the [Transfer call](/build-an-agent/tools/transfer-call) page. **Number to use** decides which of the contact's numbers is dialled. Both are optional and come as a pair: saving one without the other fails with "Transfer type and number to use must be set together.", and choosing a number the contact does not have fails with "Number to use is set to mobile number, but the contact has no mobile number." A contact with neither set is dialled on their phone number, cold.
 
+<Note>
+The **Add Contact** dialog says a contact with no transfer settings "will not be considered for call transfers". Treat **Type** and **Number to use** as required for anyone the agent should be able to transfer to: set them, and the behaviour is the same whichever way the platform resolves the gap.
+</Note>
+
 ### Descriptions as routing hints
 
 The model chooses a destination by matching what the caller asked for against each entry's name and description. A contact's description is where you say what that person handles: "Handles billing disputes and refunds. Not new sales." lets "I have a question about my invoice" reach the right person without the caller knowing a name. Keep descriptions short and distinct; two entries that share a phrase can both match, and an ambiguous match fails the transfer.
 
 ## Departments
+
+<Frame caption="The Department tab lists each department with its description and members.">
+  <img src="/images/dashboard/contacts-departments.png" alt="The Department tab lists each department with its description and members" />
+</Frame>
 
 The **Add Department** dialog takes a **Name** (placeholder "e.g. Sales"), a **Description** ("Describe what this department handles so the agent knows when to route callers here.") and **Members** ("Select contacts..."). The departments table lists each department with its description and member names, or **No members**.
 
@@ -63,9 +79,15 @@ When a transfer goes to a department, only members inside their availability win
     In the sidebar under **Build**, click **Contacts Directory**. Directories are listed on the left; with none selected the page reads "Select a contacts directory to view its contacts."
   </Step>
   <Step title="Add a directory">
+    <Frame caption="Add Contacts Directory.">
+      <img src="/images/dashboard/contacts-add-directory.png" alt="Add Contacts Directory" />
+    </Frame>
     Click **Add contacts directory** (the **+** button). The **Add Contacts Directory** dialog asks for a **Name** ("Enter a name for the new contacts directory.", placeholder "e.g. Head Office"). The directory's actions menu later offers **Rename Contacts Directory** and delete.
   </Step>
   <Step title="Add departments, then contacts">
+    <Frame caption="Add Department: name, description and members.">
+      <img src="/images/dashboard/contacts-add-department.png" alt="Add Department: name, description and members" />
+    </Frame>
     On the **Department** tab, **Add Department** for each team first, so you can pick them when you add contacts and a CSV import can assign memberships by name. Then on the **Contacts** tab, **Add Contact** and fill in the sections above. Give anyone who should not be dialled around the clock a window, and set **Transfer** on anyone whose mobile should be dialled or who should be briefed first.
   </Step>
   <Step title="Link it to an agent">
@@ -74,6 +96,10 @@ When a transfer goes to a department, only members inside their availability win
 </Steps>
 
 ## Importing and exporting
+
+<Frame caption="Import Contacts takes a CSV; Download a template gives you the columns.">
+  <img src="/images/dashboard/contacts-import.png" alt="Import Contacts takes a CSV; Download a template gives you the columns" />
+</Frame>
 
 Both tabs have **Import CSV** and **Export CSV**. Import takes a `.csv` or `.txt` file of at most 5 MB and 1,000 rows under a header row that must include `name`; unrecognised columns are ignored. A row whose name matches an existing contact or department updates it; any other row creates one. Every row is validated with the dialog's rules and nothing is written unless all pass, so a file is either fully imported or not at all. Errors are listed per row, up to 20.
 
@@ -89,6 +115,10 @@ Sam Nguyen,,+61400000002,,22:00,06:00,Australia/Perth,cold,mobile_number,Night-s
 On an update, an empty cell keeps the current value and a cell holding only `-` clears it, so a file can change one column without touching the rest. A new contact takes every cell as written. The departments file has `name` and `description`; memberships are set only through the `department` column of the contacts file. Export writes the same columns the importer reads, so the way to edit in bulk is export, change, import.
 
 ## Linking to an agent
+
+<Frame caption="The Contacts panel on the agent page: Contacts Directories and Max Transfer Attempts.">
+  <img src="/images/dashboard/sp-contacts-panel.png" alt="The Contacts panel on the agent page: Contacts Directories and Max Transfer Attempts" />
+</Frame>
 
 On the agent page, expand **Contacts**. **Contacts Directories** ("Select contacts directories...") links one or more directories. **Max Transfer Attempts** is how many failed transfers a call may make before the flow stops offering them, 1 to 10; new agents default to 2, and an empty field also means 2.
 

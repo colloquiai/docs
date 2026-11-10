@@ -86,6 +86,14 @@ appointment time. Do not send before they confirm.
 
 ## Sending to contacts and departments
 
+<Frame caption="Send to set to Contacts / Departments, with the Recipients list and Pick recipients button.">
+  <img src="/images/dashboard/sp-tool-sms-contacts.png" alt="Send to set to Contacts / Departments, with the Recipients list and Pick recipients button" />
+</Frame>
+
+<Frame caption="Pick recipients lists the contacts and departments of the agent's directories; a contact without a mobile is marked No mobile.">
+  <img src="/images/dashboard/sp-sms-pick-recipients.png" alt="Pick recipients lists the contacts and departments of the agent's directories; a contact without a mobile is marked No mobile" />
+</Frame>
+
 With **Send to** set to **Contacts / Departments**, a **Recipients** section appears ("No recipients picked yet." until you choose). **Pick recipients** opens a dialog of the same name that lists the agent's linked directories (a **Contacts Directory** selector when there is more than one) with **Contacts** and **Departments** tabs, each with a search box ("Search contacts...", "Search departments..."; "No contacts match.", "No departments match."). Each contact row shows its mobile, or **No mobile**; each department row shows its member count, or **No members**. Rows toggle, **Done** closes the picker, and the chosen names appear under **Recipients** with a remove button each. The dialog needs at least one directory linked under the agent's **Contacts** settings; otherwise it says so. Saving with nothing picked fails with "Pick at least one contact or department to send the SMS to."
 
 At send time the recipients are the picked contacts, in order, followed by every member of each picked department, in each department's member order. Three rules keep it to one message per person:
